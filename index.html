@@ -14,18 +14,18 @@
   
   body{background:var(--bg);color:var(--text);overflow:hidden;} 
 
-  .top-bar{background:linear-gradient(135deg,#16213e,#0f3460);color:#fff;padding:8px 16px;display:flex;align-items:center;z-index:100; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
+  .top-bar{background:linear-gradient(135deg,#16213e,#0f3460);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;z-index:100; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
   .top-bar h1{font-size:15px; display:flex; align-items:center; gap:8px; margin:0;}
   .top-bar h1 span{color:var(--primary);}
   
-  #userNavArea {display:flex; align-items:center; gap:8px; margin-left: 10px;}
+  .storage-mode-bar {display:flex; align-items:center; gap:8px;}
 
   .split{display:flex;height:calc(100vh - 40px);}
   
   .left-panel{width: 380px; min-width: 380px; flex-shrink: 0; padding: 10px; overflow-y: auto; background: #fff; border-right: 2px solid #ccc;}
   .right-panel{flex: 1; background: #1a1a2e; border-left: 3px solid var(--primary); display: flex; flex-direction: column; overflow: hidden;}
   
-  .bg-controls{background:#11192b;padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;border-bottom:1px solid #2a3a5c;}
+  .bg-controls{background:#11192b;padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;border-bottom:1px solid #2a3a5c;}
   .bg-controls label{color:#ccc;font-size:9px;font-weight:bold;}
 
   .preview-wrap{flex:1; overflow:auto; padding:20px; text-align:center;}
@@ -101,39 +101,21 @@
   .printer-card { border-left-color: #e91e63; background: #fdf5f8; }
   .printer-profile-bar { display:flex; gap:6px; align-items:center; margin-bottom:8px; background:#fff; padding:6px; border-radius:4px; border:1px solid #f8bbd0; }
 
-  /* 🔐 SAFE AUTH MODAL */
-  #loginModal {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;
-      backdrop-filter: blur(3px);
-  }
-  .modal-box {
-      background: #fff; padding: 25px; border-radius: 12px; width: 320px; text-align: center;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-top: 4px solid var(--primary);
-  }
-  
-  .btn-google-modern {
-      display: flex; align-items: center; justify-content: center;
-      background: #fff; color: #3c4043; border: 1px solid #dadce0;
-      padding: 10px; width: 100%; border-radius: 6px; font-weight: 600;
-      font-size: 13px; cursor: pointer; transition: background 0.2s;
-      margin-top: 15px;
-  }
-  .btn-google-modern:hover {
-      background: #f8f9fa; box-shadow: 0 1px 3px rgba(60,64,67,0.1);
-  }
+  /* 🔐 AUTH & STORAGE MODE BUTTONS */
+  .badge-mode { font-size:10px; font-weight:bold; padding:4px 8px; border-radius:12px; border:1px solid; display:inline-flex; align-items:center; gap:4px; }
+  .badge-local { background:#e0f2fe; color:#0369a1; border-color:#bae6fd; }
+  .badge-cloud { background:#dcfce7; color:#15803d; border-color:#bbf7d0; }
 
-  .disclaimer {
-      font-size: 8px; color: #888; text-align: center; margin-top: 15px; line-height: 1.3;
-  }
+  .btn-mode-toggle { background:#fff; color:#16213e; border:none; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+  .btn-mode-toggle:hover { background:#f1f5f9; }
+
+  .disclaimer { font-size: 8px; color: #888; text-align: center; margin-top: 15px; line-height: 1.3; }
 
   /* 📱 MOBILE RESPONSIVE DESIGN */
   @media (max-width: 800px) {
       body { overflow: auto; }
-      .top-bar { flex-direction: column; text-align: center; padding: 12px; gap: 10px; }
-      .top-bar h1 { flex-direction: column; font-size: 14px; gap: 8px; }
-      #userNavArea { margin-left: 0; justify-content: center; flex-wrap: wrap; }
-      
+      .top-bar { flex-direction: column; text-align: center; padding: 12px; gap: 8px; }
+      .storage-mode-bar { justify-content: center; flex-wrap: wrap; }
       .split { flex-direction: column; height: auto; }
       .left-panel { width: 100%; min-width: 100%; height: auto; border-right: none; border-bottom: 4px solid var(--primary); padding-bottom: 20px;}
       .right-panel { width: 100%; height: 75vh; min-height: 500px; border-left: none; }
@@ -143,32 +125,11 @@
 </head>
 <body>
 
-<!-- 🔐 SAFE GOOGLE-ONLY MODAL -->
-<div id="loginModal">
-  <div class="modal-box">
-    <h3 style="color:#16213e; margin-bottom:5px;">Cloud Data Sync</h3>
-    <p style="font-size:11px; color:#666; margin-bottom:15px;">Sign in with Google to securely save your beneficiary entries and printer profiles.</p>
-    
-    <button class="btn-google-modern" onclick="loginWithGoogle()">
-      <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="width:18px;height:18px;margin-right:8px;">
-        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-      </svg>
-      Sign in with Google
-    </button>
-    
-    <br>
-    <button onclick="document.getElementById('loginModal').style.display='none'" style="margin-top:15px; background:transparent; border:none; color:#777; font-size:11px; cursor:pointer; text-decoration:underline;">Close</button>
-  </div>
-</div>
-
 <div class="top-bar">
   <h1>
     <span>Bank Slip</span> Printer & Alignment Utility
-    <div id="userNavArea"></div>
   </h1>
+  <div class="storage-mode-bar" id="userNavArea"></div>
 </div>
 
 <div class="split">
@@ -295,13 +256,13 @@
     <!-- 🖨️ PRINTER HARDWARE & PROFILE MANAGER -->
     <div class="card printer-card">
       <div class="card-title" style="color: #e91e63; display:flex; justify-content:space-between; align-items:center;">
-        <span>🖨️ Hardware & Printer Profiles</span>
-        <button type="button" onclick="printAlignmentSlip()" style="background:#e91e63; color:#fff; border:none; border-radius:3px; padding:2px 6px; font-size:8px; font-weight:bold; cursor:pointer;">📄 Print Calibration Grid</button>
+        <span>🖨️ Printer Hardware & Calibration</span>
+        <button type="button" onclick="printAlignmentSlip()" style="background:#e91e63; color:#fff; border:none; border-radius:3px; padding:3px 7px; font-size:8px; font-weight:bold; cursor:pointer;">📄 Print Calibration Grid</button>
       </div>
 
       <div class="printer-profile-bar">
         <select id="printerProfileSelect" onchange="loadPrinterProfile()" style="flex:1; font-size:10px; height:22px;">
-          <option value="">-- Saved Printers (Default) --</option>
+          <option value="">-- Select Saved Printer --</option>
         </select>
         <button type="button" onclick="saveCurrentPrinterProfile()" style="background:#4caf50; color:#fff; border:none; padding:3px 8px; font-size:9px; font-weight:bold; border-radius:3px; cursor:pointer;">💾 Save Profile</button>
         <button type="button" onclick="deleteCurrentPrinterProfile()" style="background:#f44336; color:#fff; border:none; padding:3px 6px; font-size:9px; font-weight:bold; border-radius:3px; cursor:pointer;">🗑️</button>
@@ -329,7 +290,7 @@
       <div style="display:flex; flex-direction:column; gap:6px;">
         <label class="mode-label">
           <input type="radio" name="printMode" value="preprinted" checked style="width:16px;height:16px;accent-color:#673ab7;">
-          📄 Print Data Only (I have the pre-printed Bank Form)
+          📄 Print Data Only (I have pre-printed Bank Form)
         </label>
         <label class="mode-label">
           <input type="radio" name="printMode" value="blank" style="width:16px;height:16px;accent-color:#673ab7;">
@@ -346,7 +307,7 @@
     </div>
 
     <div class="disclaimer">
-      ⚠️ Private Print Utility Tool. Not affiliated with or endorsed by any financial institution.
+      ⚠️ Private Print Utility Tool. Not affiliated with or endorsed by any bank.
     </div>
   </form>
 </div>
@@ -355,16 +316,22 @@
 <div class="right-panel">
   
   <div class="bg-controls">
-    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; width:100%;">
+    <div style="display:flex; align-items:center; gap:8px;">
       <div style="display:flex; align-items:center; gap:4px; background:#34495e; padding:4px 6px; border-radius:4px;">
         <label>🔍 ZOOM:</label>
-        <input type="range" id="zoomCtrl" min="0.1" max="2" step="0.05" value="1" oninput="manualZoom(this.value)" style="width:60px;">
-        <span id="zoomVal" style="color:#fff; font-size:9px; font-weight:bold; min-width:25px;">100%</span>
+        <input type="range" id="zoomCtrl" min="0.1" max="2" step="0.05" value="1" oninput="manualZoom(this.value)" style="width:50px;">
+        <span id="zoomVal" style="color:#fff; font-size:9px; font-weight:bold;">100%</span>
       </div>
       <div style="display:flex; align-items:center; gap:4px; background:#34495e; padding:4px 6px; border-radius:4px;">
         <label>👁️ Opacity:</label>
         <input type="range" min="0" max="1" step="0.1" value="0.7" oninput="document.getElementById('pvBackground').style.opacity=this.value" style="width:40px;">
       </div>
+    </div>
+
+    <!-- 📷 CUSTOM SCAN UPLOAD BUTTON -->
+    <div>
+      <input type="file" id="scanUploadInput" accept="image/*" style="display:none;" onchange="handleScanUpload(this)">
+      <button type="button" onclick="document.getElementById('scanUploadInput').click()" style="background:#2563eb; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:9px; font-weight:bold; cursor:pointer;">📷 Upload Scanned Slip</button>
     </div>
   </div>
 
@@ -439,7 +406,7 @@
   <div class="pa-mark" id="pa_chk_CREDIT_CARD" style="top:105mm;left:116mm;display:none;">✔</div>
   <div class="pa-mark" id="pa_chk_LOAN" style="top:105mm;left:137mm;display:none;">✔</div>
   <div class="pa-mark" id="pa_chk_Others" style="top:105mm;left:149mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_bname" style="top:118mm;left:36mm;"></div>
+  <div class="pa" id="pa_bname" style="top:118mm;left:36mm;"></div>
   <div class="pa" id="pa_bacc" style="top:126mm;left:36mm;"></div>
   <div class="pa" id="pa_bacc2" style="top:134mm;left:47mm;"></div>
   <div class="pa" id="pa_ifsc" style="top:142mm;left:18mm;"></div>
@@ -455,10 +422,10 @@
 </div>
 
 <script>
-// ==================== ENCODED CONFIGURATION ====================
-const _0x1a = ["aHR0cHM6Ly9jbGJ3bWJmaG5xY3Jvc3N3dHhheS5zdXBhYmFzZS5jbw==", "c2JfcHVibGlzaGFibGVfZGJURUhiVjBqcGlEQWNCVnJSeG9hUV82UFV0c2FQWg=="];
-const SUPABASE_URL = atob(_0x1a[0]); 
-const SUPABASE_ANON_KEY = atob(_0x1a[1]); 
+// ==================== CONFIGURATION ====================
+const SUPABASE_URL = 'https://clbwmbfhnqcrosswtxay.supabase.co'; 
+// Exactly matching project anon key
+const SUPABASE_ANON_KEY = 'sb_publishable_' + 'dbTEHBv0jpiDAcBVrRXoaQ_6PUtsaPZ'; 
 const DEFAULT_BG_IMAGE_URL = 'https://raw.githubusercontent.com/rtgstool-droid/kotak_rtgs_form/main/form_bg.jpg'; 
 
 let supabaseClient = null;
@@ -471,19 +438,18 @@ function renderUserNav() {
     
     if(currentUser) {
         ui.innerHTML = `
-           <span style="font-size:10px; background:#e8f5e9; padding:3px 8px; border-radius:12px; color:#2e7d32; border:1px solid #c8e6c9; margin-left:8px;">🟢 Cloud Connected</span>
-           <span style="background:#2a3a5c; padding:4px 10px; border-radius:12px; font-weight:600; font-size:11px; margin-left:8px;">👤 ${currentUser.email}</span>
-           <button onclick="logout()" style="background:#e53935; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:10px; cursor:pointer; font-weight:bold; margin-left:8px; box-shadow:0 1px 3px rgba(0,0,0,0.2);">Logout</button>
+           <span class="badge-mode badge-cloud">🟢 Cloud Synced (${currentUser.email})</span>
+           <button class="btn-mode-toggle" onclick="logout()" style="color:#e53935;">Logout</button>
         `;
     } else {
         ui.innerHTML = `
-           <button onclick="document.getElementById('loginModal').style.display='flex'" style="background:#fff; color:var(--primary); border:2px solid var(--primary); padding:3px 12px; border-radius:12px; font-size:11px; cursor:pointer; font-weight:bold; margin-left:10px; transition:0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.2);">Cloud Login</button>
+           <span class="badge-mode badge-local">💾 Mode: Local (This Device)</span>
+           <button class="btn-mode-toggle" onclick="loginWithGoogle()">☁️ Sync with Google</button>
         `;
     }
 }
 
-if(SUPABASE_ANON_KEY) {
-   // 🟢 CRITICAL: Explicit session persistence for GitHub Pages OAuth hash tokens
+try {
    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
        auth: {
            persistSession: true,
@@ -494,20 +460,34 @@ if(SUPABASE_ANON_KEY) {
    });
    cloudActive = true;
    
-   // Check session immediately and catch redirect token
+   // 🟢 DIRECT HASH TOKEN CATCHER (Bypasses any redirect bugs)
+   if (window.location.hash && window.location.hash.includes('access_token=')) {
+       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+       const at = hashParams.get('access_token');
+       const rt = hashParams.get('refresh_token');
+       if (at && rt) {
+           supabaseClient.auth.setSession({ access_token: at, refresh_token: rt }).then(({ data, error }) => {
+               if (data && data.session) {
+                   currentUser = data.session.user;
+                   renderUserNav();
+                   fetchFromCloud();
+                   window.history.replaceState(null, null, window.location.pathname);
+               }
+           });
+       }
+   }
+
+   // Standard session check
    supabaseClient.auth.getSession().then(({ data: { session } }) => {
        if (session && session.user) {
            currentUser = session.user;
            renderUserNav();
            fetchFromCloud();
-           // Clean up the messy URL hash after successful login
-           if (window.location.hash.includes('access_token')) {
-               window.history.replaceState(null, null, window.location.pathname);
-           }
+       } else {
+           renderUserNav();
        }
    });
 
-   // Listen for authentication changes
    supabaseClient.auth.onAuthStateChange((event, session) => {
        if(session && session.user) {
            currentUser = session.user;
@@ -516,64 +496,57 @@ if(SUPABASE_ANON_KEY) {
        } else if (event === 'SIGNED_OUT') {
            currentUser = null;
            renderUserNav();
-           localStorage.removeItem('ktk_senders');
-           localStorage.removeItem('ktk_benes');
-           localStorage.removeItem('ktk_printers');
-           loadSenderDropdown();
-           loadBeneDropdown();
-           loadPrinterDropdown();
        }
    });
-} else {
+} catch(err) {
+   console.warn("Supabase init fallback to local mode:", err);
    renderUserNav();
 }
 
 async function loginWithGoogle() {
-    if(!cloudActive) return alert("Configuration missing.");
-    const { data, error } = await supabaseClient.auth.signInWithOAuth({
+    if(!supabaseClient) return alert("Supabase configuration missing.");
+    const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: 'https://rtgstool-droid.github.io/kotak_rtgs_form/'
+            redirectTo: window.location.origin + window.location.pathname
         }
     });
     if(error) alert("Login Error: " + error.message);
 }
 
 async function logout() {
-    await supabaseClient.auth.signOut();
-    location.reload(); 
+    if(supabaseClient) await supabaseClient.auth.signOut();
+    currentUser = null;
+    renderUserNav();
+    alert("Switched back to Local Device Storage mode.");
 }
 
-// ==================== CLOUD DATABASE LOGIC ====================
+// ==================== STORAGE & DATABASE LOGIC ====================
+// Automatically syncs to Cloud if logged in, otherwise keeps safely in LocalStorage!
 async function syncToCloud(dbKey, jsonData) {
-   if(!cloudActive || !currentUser) return;
-   const privateUserKey = `${currentUser.id}_${dbKey}`;
-   await supabaseClient.from('kotak_store').upsert({ key: privateUserKey, value: jsonData });
+   if(cloudActive && currentUser) {
+       const privateUserKey = `${currentUser.id}_${dbKey}`;
+       await supabaseClient.from('kotak_store').upsert({ key: privateUserKey, value: jsonData });
+   }
 }
 
 async function fetchFromCloud() {
    if(!cloudActive || !currentUser) return;
-   const { data, error } = await supabaseClient.from('kotak_store')
+   const { data } = await supabaseClient.from('kotak_store')
                                .select('*')
                                .like('key', `${currentUser.id}_%`);
                                
-   if(data) {
+   if(data && data.length > 0) {
        data.forEach(row => {
-           if(row.key.endsWith('_senders')) {
-               localStorage.setItem('ktk_senders', JSON.stringify(row.value));
-               loadSenderDropdown();
-           }
-           if(row.key.endsWith('_benes')) {
-               localStorage.setItem('ktk_benes', JSON.stringify(row.value));
-               loadBeneDropdown();
-           }
-           if(row.key.endsWith('_printers')) {
-               localStorage.setItem('ktk_printers', JSON.stringify(row.value));
-               loadPrinterDropdown();
-           }
+           if(row.key.endsWith('_senders')) localStorage.setItem('ktk_senders', JSON.stringify(row.value));
+           if(row.key.endsWith('_benes')) localStorage.setItem('ktk_benes', JSON.stringify(row.value));
+           if(row.key.endsWith('_printers')) localStorage.setItem('ktk_printers', JSON.stringify(row.value));
        });
+       loadSenderDropdown();
+       loadBeneDropdown();
+       loadPrinterDropdown();
+       updatePreview();
    }
-   updatePreview();
 }
 
 // ==================== FORM LOGIC ====================
@@ -647,14 +620,12 @@ function fillDemoData() {
   updatePreview();
 }
 
-// ==================== SAVE SENDER LOGIC ====================
+// ==================== SAVE SENDER LOGIC (WORKS OFFLINE & ONLINE) ====================
 function checkSenderSaveState() {
    let name = v('iWeName').trim();
    let acc = v('myAccNo').trim();
    let btn = document.getElementById('btnSaveSender');
-   if(!name || !acc) {
-       btn.style.display = 'none'; return;
-   }
+   if(!name || !acc) { btn.style.display = 'none'; return; }
    btn.style.display = 'inline-block';
    let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
    let existing = senders[name];
@@ -667,17 +638,13 @@ function checkSenderSaveState() {
        btn.style.color = '#2e7d32';
    } else {
        btn.disabled = false;
-       btn.innerText = existing ? '🔄 Update Save' : '☁️ Save';
+       btn.innerText = existing ? '🔄 Update' : (currentUser ? '☁️ Save Cloud' : '💾 Save Local');
        btn.style.background = existing ? '#ff9800' : '#4caf50';
        btn.style.color = '#fff';
    }
 }
 
 function doSaveSender() {
-  if(!currentUser) {
-      document.getElementById('loginModal').style.display = 'flex';
-      return;
-  }
   const name = v('iWeName').trim();
   if(!name) return;
   let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
@@ -713,8 +680,8 @@ function loadSender() {
 
 function deleteSender() {
   const name = document.getElementById('loadSenderSelect').value;
-  if(!name) return alert('Please select an Account Holder from the dropdown to delete.');
-  if(!confirm(`Are you sure you want to delete '${name}'?`)) return;
+  if(!name) return alert('Select an Account Holder to delete.');
+  if(!confirm(`Delete '${name}'?`)) return;
   let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
   delete senders[name];
   localStorage.setItem('ktk_senders', JSON.stringify(senders));
@@ -724,15 +691,13 @@ function deleteSender() {
   updatePreview();
 }
 
-// ==================== SAVE BENEFICIARY LOGIC ====================
+// ==================== SAVE BENEFICIARY LOGIC (WORKS OFFLINE & ONLINE) ====================
 function checkBeneSaveState() {
    let name = v('beneName').trim();
    let acc = v('beneAcc').trim();
    let ifsc = v('ifsc').trim();
    let btn = document.getElementById('btnSaveBene');
-   if(!name || !acc || !ifsc) {
-       btn.style.display = 'none'; return;
-   }
+   if(!name || !acc || !ifsc) { btn.style.display = 'none'; return; }
    btn.style.display = 'inline-block';
    let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
    let existing = benes[name];
@@ -747,17 +712,13 @@ function checkBeneSaveState() {
        btn.style.color = '#1565c0';
    } else {
        btn.disabled = false;
-       btn.innerText = existing ? '🔄 Update Save' : '☁️ Save';
+       btn.innerText = existing ? '🔄 Update' : (currentUser ? '☁️ Save Cloud' : '💾 Save Local');
        btn.style.background = existing ? '#ff9800' : '#2196f3';
        btn.style.color = '#fff';
    }
 }
 
 function doSaveBene() {
-  if(!currentUser) {
-      document.getElementById('loginModal').style.display = 'flex';
-      return;
-  }
   const name = v('beneName').trim();
   if(!name) return;
   let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
@@ -798,8 +759,8 @@ function loadBene() {
 
 function deleteBene() {
   const name = document.getElementById('loadBeneSelect').value;
-  if(!name) return alert('Please select a Beneficiary from the dropdown to delete.');
-  if(!confirm(`Are you sure you want to delete '${name}'?`)) return;
+  if(!name) return alert('Select a Beneficiary to delete.');
+  if(!confirm(`Delete '${name}'?`)) return;
   let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
   delete benes[name];
   localStorage.setItem('ktk_benes', JSON.stringify(benes));
@@ -822,7 +783,7 @@ function adjPrint(d, val) {
 }
 
 function saveCurrentPrinterProfile() {
-    let pName = prompt("Enter a name for this Printer profile (e.g., HP LaserJet, Canon Office):");
+    let pName = prompt("Enter Printer Name (e.g., HP LaserJet, Canon LBP):");
     if(!pName || !pName.trim()) return;
     pName = pName.trim();
 
@@ -833,13 +794,13 @@ function saveCurrentPrinterProfile() {
 
     loadPrinterDropdown();
     document.getElementById('printerProfileSelect').value = pName;
-    alert(`Printer profile "${pName}" saved successfully!`);
+    alert(`Printer profile "${pName}" saved!`);
 }
 
 function loadPrinterDropdown() {
     let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
     let sel = document.getElementById('printerProfileSelect');
-    sel.innerHTML = '<option value="">-- Saved Printers (Default) --</option>';
+    sel.innerHTML = '<option value="">-- Select Saved Printer --</option>';
     for(let name in printers) {
         let opt = document.createElement('option');
         opt.value = name; opt.text = name;
@@ -853,8 +814,7 @@ function loadPrinterProfile() {
     let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
     let p = printers[selVal];
     if(p) {
-        pTopO = p.top;
-        pLeftO = p.left;
+        pTopO = p.top; pLeftO = p.left;
         localStorage.setItem('ktk_ptop_v7', pTopO);
         localStorage.setItem('ktk_pleft_v7', pLeftO);
         document.getElementById('pTopVal').innerText = pTopO + 'mm';
@@ -864,8 +824,8 @@ function loadPrinterProfile() {
 
 function deleteCurrentPrinterProfile() {
     let selVal = document.getElementById('printerProfileSelect').value;
-    if(!selVal) return alert("Select a printer profile first to delete.");
-    if(!confirm(`Delete printer profile "${selVal}"?`)) return;
+    if(!selVal) return alert("Select a printer profile to delete.");
+    if(!confirm(`Delete profile "${selVal}"?`)) return;
 
     let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
     delete printers[selVal];
@@ -878,6 +838,7 @@ function deleteCurrentPrinterProfile() {
     document.getElementById('pLeftVal').innerText = '0mm';
 }
 
+// 📄 CALIBRATION TEST PRINT SLIP
 function printAlignmentSlip() {
     const frame = document.createElement('iframe');
     frame.style.position = 'fixed'; frame.style.right = '0'; frame.style.bottom = '0';
@@ -888,19 +849,18 @@ function printAlignmentSlip() {
     doc.write(`
       <!DOCTYPE html><html><head><style>
         @page { size: 210mm 294mm; margin: 0; }
-        body { margin: 0; padding: 0; font-family: monospace; font-size: 8pt; color: #333; }
-        .grid-box { position: relative; width: 210mm; height: 294mm; border: 1px solid #999; }
-        .mark-top { position: absolute; top: 10mm; left: 10mm; font-size: 11pt; font-weight: bold; }
-        .crosshair { position: absolute; font-size: 14pt; }
+        body { margin: 0; padding: 0; font-family: monospace; font-size: 8pt; color: #111; }
+        .grid-box { position: relative; width: 210mm; height: 294mm; border: 1px dashed #666; }
+        .crosshair { position: absolute; font-size: 11pt; font-weight: bold; }
       </style></head><body>
         <div class="grid-box">
-          <div class="mark-top">📐 PRINTER CALIBRATION SLIP (A4)</div>
-          <div style="position:absolute; top:20mm; left:10mm; font-size:9pt;">
-             Put this print on top of your bank form under light or scanner.<br>
-             Current Hardware Settings: Top=${pTopO}mm, Left=${pLeftO}mm
+          <div style="position:absolute; top:15mm; left:15mm; font-size:12pt; font-weight:bold;">📐 PRINTER CALIBRATION & SCAN TEST (A4)</div>
+          <div style="position:absolute; top:23mm; left:15mm; font-size:9pt;">
+             Put this sheet under your scanner or over actual bank slip.<br>
+             Current Offset Applied: Top = ${pTopO}mm | Left = ${pLeftO}mm
           </div>
-          <div class="crosshair" style="top:37mm; left:51mm;">➕ RTGS Mark (37mm, 51mm)</div>
-          <div class="crosshair" style="top:37mm; left:105mm;">➕ NEFT Mark (37mm, 105mm)</div>
+          <div class="crosshair" style="top:37mm; left:51mm;">➕ RTGS (37mm, 51mm)</div>
+          <div class="crosshair" style="top:37mm; left:105mm;">➕ NEFT (37mm, 105mm)</div>
           <div class="crosshair" style="top:62mm; left:24mm;">➕ Sender Acc (62mm, 24mm)</div>
           <div class="crosshair" style="top:126mm; left:36mm;">➕ Bene Acc (126mm, 36mm)</div>
           <div class="crosshair" style="top:142mm; left:18mm;">➕ IFSC (142mm, 18mm)</div>
@@ -915,6 +875,18 @@ function printAlignmentSlip() {
     }, 500);
 }
 
+// 📷 HANDLE USER SCANNED IMAGE UPLOAD
+function handleScanUpload(input) {
+   if (input.files && input.files[0]) {
+       const reader = new FileReader();
+       reader.onload = function(e) {
+           document.getElementById('pvBackground').style.backgroundImage = `url('${e.target.result}')`;
+           alert("Scanned slip loaded as background! You can now adjust Zoom & Opacity to align.");
+       };
+       reader.readAsDataURL(input.files[0]);
+   }
+}
+
 // ==================== VISUAL / PRINTING LOGIC ====================
 function manualZoom(val) {
   document.getElementById('zoomVal').innerText = Math.round(val * 100) + '%';
@@ -925,15 +897,11 @@ function autoFitPreview() {
   const w = document.querySelector('.preview-wrap');
   const f = document.getElementById('previewFrame');
   if(!w || !f) return;
-  
   let scaleW = (w.clientWidth - 40) / f.offsetWidth; 
   let scaleH = (w.clientHeight - 40) / f.offsetHeight; 
-  
   let s = Math.min(scaleW, scaleH);
-  
   if(s < 0.1) s = 0.1;
   if(s > 2) s = 2;
-  
   document.getElementById('zoomCtrl').value = s;
   manualZoom(s);
 }
