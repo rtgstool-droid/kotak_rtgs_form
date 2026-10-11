@@ -439,7 +439,7 @@
   <div class="pa-mark" id="pa_chk_CREDIT_CARD" style="top:105mm;left:116mm;display:none;">✔</div>
   <div class="pa-mark" id="pa_chk_LOAN" style="top:105mm;left:137mm;display:none;">✔</div>
   <div class="pa-mark" id="pa_chk_Others" style="top:105mm;left:149mm;display:none;">✔</div>
-  <div class="pa" id="pa_bname" style="top:118mm;left:36mm;"></div>
+  <div class="pa-mark" id="pa_bname" style="top:118mm;left:36mm;"></div>
   <div class="pa" id="pa_bacc" style="top:126mm;left:36mm;"></div>
   <div class="pa" id="pa_bacc2" style="top:134mm;left:47mm;"></div>
   <div class="pa" id="pa_ifsc" style="top:142mm;left:18mm;"></div>
@@ -483,25 +483,37 @@ function renderUserNav() {
 }
 
 if(SUPABASE_ANON_KEY) {
-   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+   // 🟢 CRITICAL: Explicit session persistence for GitHub Pages OAuth hash tokens
+   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+       auth: {
+           persistSession: true,
+           autoRefreshToken: true,
+           detectSessionInUrl: true,
+           flowType: 'implicit'
+       }
+   });
    cloudActive = true;
    
-   // 🟢 CHECK SESSION IMMEDIATELY ON LOAD (Redirect Catch Fix)
+   // Check session immediately and catch redirect token
    supabaseClient.auth.getSession().then(({ data: { session } }) => {
        if (session && session.user) {
            currentUser = session.user;
            renderUserNav();
            fetchFromCloud();
+           // Clean up the messy URL hash after successful login
+           if (window.location.hash.includes('access_token')) {
+               window.history.replaceState(null, null, window.location.pathname);
+           }
        }
    });
 
-   // 🟢 AUTH STATE LISTENER
+   // Listen for authentication changes
    supabaseClient.auth.onAuthStateChange((event, session) => {
        if(session && session.user) {
            currentUser = session.user;
            renderUserNav();
            fetchFromCloud(); 
-       } else {
+       } else if (event === 'SIGNED_OUT') {
            currentUser = null;
            renderUserNav();
            localStorage.removeItem('ktk_senders');
