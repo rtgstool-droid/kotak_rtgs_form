@@ -1,1066 +1,1537 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bank Slip Printer & Alignment Utility</title>
-
-<!-- Supabase JS -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<style>
-  :root{--primary:#ed1c24;--bg:#f0f2f5;--card:#fff;--text:#333;}
-  *{box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;margin:0;padding:0;}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kotak RTGS / NEFT Auto-Fill & Print Utility</title>
   
-  body{background:var(--bg);color:var(--text);overflow:hidden;} 
+  <!-- Supabase Client Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  .top-bar{background:linear-gradient(135deg,#16213e,#0f3460);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;z-index:100; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
-  .top-bar h1{font-size:15px; display:flex; align-items:center; gap:8px; margin:0;}
-  .top-bar h1 span{color:var(--primary);}
-  
-  .top-right-bar {display:flex; align-items:center; gap:12px;}
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-hover: #172554;
+      --secondary: #0284c7;
+      --accent: #dc2626;
+      --success: #16a34a;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #cbd5e1;
+      --border-focus: #3b82f6;
+    }
 
-  /* 🔘 LOCAL vs CLOUD TOGGLE (Left: Local, Right: Cloud - Default Right) */
-  .storage-toggle-pill {
-    display: inline-flex;
-    background: #0b1727;
-    border: 1px solid #334e68;
-    border-radius: 20px;
-    padding: 2px;
-    cursor: pointer;
-    user-select: none;
-    font-size: 10px;
-    font-weight: 700;
-  }
-  .storage-toggle-pill span {
-    padding: 3px 12px;
-    border-radius: 16px;
-    transition: all 0.2s ease;
-    color: #9fb3c8;
-  }
-  .storage-toggle-pill span.active {
-    background: var(--primary);
-    color: #fff;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-  }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-  #userNavArea {display:flex; align-items:center; gap:8px;}
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-  .split{display:flex;height:calc(100vh - 40px);}
-  
-  .left-panel{width: 380px; min-width: 380px; flex-shrink: 0; padding: 10px; overflow-y: auto; background: #fff; border-right: 2px solid #ccc;}
-  .right-panel{flex: 1; background: #1a1a2e; border-left: 3px solid var(--primary); display: flex; flex-direction: column; overflow: hidden;}
-  
-  .bg-controls{background:#11192b;padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;border-bottom:1px solid #2a3a5c;}
-  .bg-controls label{color:#ccc;font-size:9px;font-weight:bold;}
+    /* =========================================================
+       TOP NAVIGATION BAR - ALL CONTROLS ORGANIZED ON THE LEFT
+       ========================================================= */
+    .top-bar {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start; /* ALIGNED TO LEFT */
+      gap: 16px;
+      border-bottom: 1px solid #1e293b;
+      flex-wrap: wrap;
+    }
 
-  .preview-wrap{flex:1; overflow:auto; padding:20px; text-align:center;}
-  
-  .preview-frame{display:inline-block; width:210mm !important;height:294mm !important;min-width:210mm !important;min-height:294mm !important;background:#fff;position:relative;font-family:Arial,sans-serif;font-size:10pt;font-weight:bold;color:#000;box-shadow:0 10px 30px rgba(0,0,0,0.8);}
-  
-  .pv, .pv-mark{
-    position:absolute; white-space:nowrap; 
-    cursor: grab; user-select: none;
-    border: 1px solid transparent; border-radius: 2px;
-  }
-  .pv-mark{font-size:14pt;font-weight:900;color:var(--primary);}
-  
-  .pv:active, .pv-mark:active { cursor: grabbing; z-index:999 !important; }
-  .pv:hover, .pv-mark:hover { outline: 1px dashed #2196f3; background-color: rgba(33, 150, 243, 0.15); z-index:900; }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.2px;
+      color: #f8fafc;
+      margin-right: 6px;
+    }
 
-  .pa { position: absolute; white-space: nowrap; color: #000 !important; font-family: Arial, sans-serif; font-weight: bold; }
-  .pa-mark { position: absolute; font-size: 14pt; font-weight: 900; color: #000 !important; font-family: Arial, sans-serif; }
+    .brand-icon {
+      font-size: 1.3rem;
+    }
 
-  .card{background:var(--card);padding:10px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.1);border:1px solid #eee;margin-bottom:10px;border-left:3px solid #16213e;}
-  .card-title{font-size:11px;font-weight:700;border-bottom:1px solid #eef;padding-bottom:4px;margin-bottom:8px;color:#16213e;text-transform:uppercase;}
-  
-  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .col-full{grid-column:1 / -1;}
-  
-  .form-group{display:flex;flex-direction:column;}
-  label{font-size:9px;font-weight:700;color:#555;margin-bottom:2px;text-transform:uppercase;}
-  input[type="text"] { text-transform: uppercase; }
-  
-  input,select{padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:11px;height:24px;background:#fafbfd;}
-  input:focus,select:focus{border-color:var(--primary);outline:none;background:#fff;}
-  .radio-group{display:flex;gap:8px;flex-wrap:wrap;}
-  .radio-item{display:flex;align-items:center;gap:3px;font-size:9px;cursor:pointer;font-weight:600;}
+    /* LEFT CONTROLS GROUP */
+    .left-controls-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
 
-  .cal-bar{background:#e8f4fd;padding:6px 10px;border-radius:6px;margin-bottom:10px;display:flex;align-items:center;gap:14px;border:1px solid #b3d9f2;}
-  .cal-btn{width:22px;height:22px;border:1px solid #bbb;background:#fff;font-weight:bold;font-size:13px;display:flex;justify-content:center;align-items:center;border-radius:4px;cursor:pointer;}
-  .cal-btn:hover{border-color:var(--primary);color:var(--primary);}
-  .offset-display{font-weight:800;color:#16213e;min-width:35px;text-align:center;font-size:11px;}
-  
-  .cal-btn-sm{width:20px;height:20px;border:1px solid #ccc;background:#fff;cursor:pointer;font-weight:bold;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0;}
-  .cal-btn-sm:hover{border-color:var(--primary);color:var(--primary);}
+    /* Storage Toggle (Local vs Cloud) */
+    .storage-toggle-pill {
+      display: inline-flex;
+      background: #1e293b;
+      border-radius: 20px;
+      padding: 3px;
+      border: 1px solid #334155;
+    }
 
-  .actions{display:flex;gap:4px;padding:6px 0;margin-top:4px;}
-  .btn{padding:8px 8px;border:none;border-radius:4px;cursor:pointer;font-weight:800;font-size:10px;flex:1;text-align:center;}
-  .btn-print{background:var(--primary);color:#fff;}
-  .btn-print:hover{background:#c01016;}
-  .btn-demo{background:#ff9800;color:#fff;}
-  .btn-demo:hover{background:#e68a00;}
-  .btn-clear{background:#eee;border:1px solid #ccc;color:#333;}
-  .btn-success{background:#4caf50;color:#fff;}
-  .btn-success:hover{background:#388e3c;}
+    .storage-btn {
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      padding: 5px 12px;
+      border-radius: 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
 
-  .btn-delete {
-      background: transparent; color: #e53935; border: 1px solid #e53935; 
-      padding: 3px 10px; font-size: 9px; border-radius: 12px; cursor: pointer; 
-      font-weight: 700; display: inline-flex; align-items: center; gap: 4px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .btn-delete:hover { background: #e53935; color: #fff; box-shadow: 0 2px 5px rgba(229,57,53,0.3); }
-  .btn-delete svg { width: 11px; height: 11px; fill: currentColor; transition: transform 0.2s; }
-  .btn-delete:hover svg { transform: scale(1.15) rotate(-8deg); }
+    .storage-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
 
-  .print-mode-card { background: #ede7f6; border-left-color: #673ab7; }
-  .mode-label {
-      display:flex; align-items:center; gap:8px; background:#fff; padding:8px 12px; 
-      border-radius:6px; border:1px solid #d1c4e9; cursor:pointer; font-size:10px; 
-      font-weight:700; color:#4527a0; transition: 0.2s;
-  }
-  .mode-label:hover { border-color: #673ab7; background:#f3e5f5; }
-  .print-area { display: none; }
+    /* Status Badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
 
-  /* 🖨️ PRINTER HARDWARE MANAGER STYLES */
-  .printer-card { border-left-color: #e91e63; background: #fdf5f8; }
-  .printer-profile-bar { display:flex; gap:6px; align-items:center; margin-bottom:8px; background:#fff; padding:6px; border-radius:4px; border:1px solid #f8bbd0; }
+    .status-badge.local-mode {
+      background: rgba(148, 163, 184, 0.15);
+      color: #94a3b8;
+      border-color: rgba(148, 163, 184, 0.3);
+    }
 
-  .disclaimer { font-size: 8px; color: #888; text-align: center; margin-top: 15px; line-height: 1.3; }
+    .status-badge.disconnected {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
 
-  /* 📱 MOBILE RESPONSIVE DESIGN */
-  @media (max-width: 800px) {
-      body { overflow: auto; }
-      .top-bar { flex-direction: column; text-align: center; padding: 12px; gap: 8px; }
-      .top-right-bar { justify-content: center; flex-wrap: wrap; }
-      .split { flex-direction: column; height: auto; }
-      .left-panel { width: 100%; min-width: 100%; height: auto; border-right: none; border-bottom: 4px solid var(--primary); padding-bottom: 20px;}
-      .right-panel { width: 100%; height: 75vh; min-height: 500px; border-left: none; }
-      .preview-wrap { padding: 10px; overflow: hidden; display: flex; justify-content: center; align-items: flex-start;}
-  }
-</style>
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* User Badge */
+    .user-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 16px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+    }
+
+    /* Action Buttons in Header */
+    .btn-header-action {
+      background: #ef4444;
+      color: #ffffff;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-header-action:hover {
+      background: #dc2626;
+    }
+
+    .btn-header-action.login-btn {
+      background: #2563eb;
+    }
+
+    .btn-header-action.login-btn:hover {
+      background: #1d4ed8;
+    }
+
+    /* Main Container */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 20px;
+      padding: 20px;
+      max-width: 1750px;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+    }
+
+    @media (max-width: 1100px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Card Panels */
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 12px 18px;
+      background: #f1f5f9;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-header h3 {
+      font-size: 0.95rem;
+      color: #1e293b;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-body {
+      padding: 16px;
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 4px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    /* Radio Group */
+    .radio-group {
+      display: flex;
+      gap: 16px;
+      padding: 6px 0;
+    }
+
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #1e293b;
+      border-color: #cbd5e1;
+    }
+
+    .btn-secondary:hover {
+      background: #cbd5e1;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+
+    .btn-success:hover {
+      background: #15803d;
+    }
+
+    .btn-danger {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 0.78rem;
+    }
+
+    /* =========================================================
+       LIVE PC SCANNER CARDS & STYLING
+       ========================================================= */
+    .scanner-actions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .btn-scan-primary {
+      grid-column: span 2;
+      background: linear-gradient(135deg, #1e3a8a, #0284c7);
+      color: #ffffff;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      text-align: left;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-scan-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-scan-primary .icon {
+      font-size: 1.8rem;
+    }
+
+    .btn-scan-secondary {
+      background: #f1f5f9;
+      color: #1e293b;
+      border: 1px solid #cbd5e1;
+      padding: 10px 12px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      text-align: left;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+    }
+
+    .btn-scan-secondary:hover {
+      background: #e2e8f0;
+    }
+
+    .btn-scan-secondary .icon {
+      font-size: 1.3rem;
+    }
+
+    .scan-hint-banner {
+      background: #eff6ff;
+      border: 1px dashed #60a5fa;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      color: #1e40af;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .scan-hint-badge {
+      background: #2563eb;
+      color: #ffffff;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .slip-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 8px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 0.82rem;
+    }
+
+    /* Print Offset Calibration */
+    .calibration-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    /* =========================================================
+       PREVIEW CONTAINER & SLIP CANVAS
+       ========================================================= */
+    .preview-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .preview-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #ffffff;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .slip-viewport-wrapper {
+      background: #64748b;
+      padding: 20px;
+      border-radius: 8px;
+      overflow: auto;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.2);
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Exact physical Kotak RTGS slip proportion: 210mm x 105mm */
+    .slip-container {
+      width: 794px;
+      height: 397px;
+      background-color: #ffffff;
+      position: relative;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+      user-select: none;
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+      background-position: center;
+      transition: outline 0.15s;
+    }
+
+    .slip-container.drag-over {
+      outline: 4px dashed #3b82f6;
+    }
+
+    /* Floating Data Fields on Slip */
+    .slip-field {
+      position: absolute;
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: 700;
+      font-size: 13px;
+      color: #000000;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* Default Kotak Coordinates */
+    #pos-date         { top: 28px;  left: 640px; letter-spacing: 2.5px; }
+    #pos-type-rtgs    { top: 52px;  left: 60px;  font-size: 16px; }
+    #pos-type-neft    { top: 52px;  left: 140px; font-size: 16px; }
+    #pos-remitter-acc { top: 92px;  left: 140px; letter-spacing: 3px; }
+    #pos-remitter-name{ top: 122px; left: 140px; }
+    #pos-cheque-no    { top: 150px; left: 140px; }
+    #pos-ben-name     { top: 182px; left: 140px; }
+    #pos-ben-bank     { top: 212px; left: 140px; }
+    #pos-ben-branch   { top: 212px; left: 450px; }
+    #pos-ben-acc      { top: 242px; left: 140px; letter-spacing: 3px; }
+    #pos-ben-ifsc     { top: 272px; left: 140px; letter-spacing: 2px; }
+    #pos-amount-num   { top: 302px; left: 140px; font-size: 14px; }
+    #pos-amount-words { top: 334px; left: 140px; max-width: 600px; font-size: 11px; white-space: normal; line-height: 1.2; }
+
+    /* Modal for Camera */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .modal-overlay.hidden {
+      display: none;
+    }
+
+    .modal-box {
+      background: #ffffff;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 680px;
+      overflow: hidden;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+      padding: 14px 20px;
+      background: #f1f5f9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h4 {
+      font-size: 1.05rem;
+      color: #0f172a;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: #64748b;
+    }
+
+    .video-container {
+      position: relative;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 380px;
+    }
+
+    #cameraVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .camera-overlay-frame {
+      position: absolute;
+      width: 85%;
+      height: 55%;
+      border: 2px dashed #38bdf8;
+      border-radius: 8px;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #38bdf8;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .modal-footer {
+      padding: 12px 20px;
+      background: #f8fafc;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Toast notification */
+    #toastMessage {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+      font-size: 0.88rem;
+      z-index: 10000;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s ease;
+      pointer-events: none;
+    }
+
+    #toastMessage.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* =========================================================
+       PRINT STYLES: MILLIMETER PRECISION
+       ========================================================= */
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+
+      .slip-container, .slip-container * {
+        visibility: visible !important;
+      }
+
+      .slip-container {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+      }
+
+      /* Hide background image on print by default if printing on physical slip */
+      body.hide-bg-on-print .slip-container {
+        background-image: none !important;
+      }
+
+      @page {
+        size: 210mm 105mm landscape;
+        margin: 0mm;
+      }
+    }
+  </style>
 </head>
 <body>
 
-<div class="top-bar">
-  <h1>
-    <span>Bank Slip</span> Printer & Alignment Utility
-  </h1>
-
-  <div class="top-right-bar">
-    <!-- 🔘 STORAGE TOGGLE (Left: Local | Right: Cloud [Default]) -->
-    <div class="storage-toggle-pill" onclick="toggleStorageMode()">
-      <span id="toggleOptLocal">💾 Local</span>
-      <span id="toggleOptCloud" class="active">☁️ Cloud</span>
+  <!-- =========================================================
+       HEADER: ALL CONTROLS POSITIONED NICELY ON THE LEFT
+       ========================================================= -->
+  <header class="top-bar">
+    <div class="brand-title">
+      <span class="brand-icon">🏦</span>
+      <span>Kotak RTGS / NEFT Pro</span>
     </div>
 
-    <!-- 👤 ORIGINAL USER NAV (Login / Logout pehle jaisi jagah) -->
-    <div id="userNavArea"></div>
-  </div>
-</div>
+    <!-- LEFT-SIDE CONTROLS GROUP -->
+    <div class="left-controls-group">
+      <!-- 1. Storage Mode Toggle (Local vs Cloud) -->
+      <div class="storage-toggle-pill" id="storageToggleGroup">
+        <button type="button" class="storage-btn" id="btnModeLocal" onclick="setStorageMode('local')">💾 Local</button>
+        <button type="button" class="storage-btn active" id="btnModeCloud" onclick="setStorageMode('cloud')">☁️ Cloud</button>
+      </div>
 
-<div class="split">
+      <!-- 2. Connection Status Badge -->
+      <div id="statusBadge" class="status-badge">
+        <span class="status-dot"></span>
+        <span id="statusBadgeText">Cloud Connected</span>
+      </div>
 
-<!-- ═══════ LEFT: COMPACT ENTRY FORM ═══════ -->
-<div class="left-panel">
+      <!-- 3. User Email Badge -->
+      <div id="userEmailBadge" class="user-badge">
+        <span>👤</span>
+        <span id="userEmailText">Checking...</span>
+      </div>
 
-  <div class="cal-bar">
-    <div style="font-size:10px;font-weight:700;color:#16213e;line-height:1.2;">SCREEN Global Offset<br><span style="font-size:8px;font-weight:normal;">(Moves text on screen)</span></div>
-    <div style="display:flex;align-items:center;gap:4px;">
-      <span style="font-size:9px;font-weight:600;">Top</span>
-      <button type="button" class="cal-btn" onclick="adj('top',-1)">−</button>
-      <span class="offset-display" id="topVal">0mm</span>
-      <button type="button" class="cal-btn" onclick="adj('top',1)">+</button>
+      <!-- 4. Auth Button (Logout / Login) -->
+      <button type="button" id="authActionBtn" class="btn-header-action" onclick="handleAuthAction()">Logout</button>
     </div>
-    <div style="display:flex;align-items:center;gap:4px;">
-      <span style="font-size:9px;font-weight:600;">Left</span>
-      <button type="button" class="cal-btn" onclick="adj('left',-1)">−</button>
-      <span class="offset-display" id="leftVal">0mm</span>
-      <button type="button" class="cal-btn" onclick="adj('left',1)">+</button>
-    </div>
-  </div>
+  </header>
 
-  <form id="rtgsForm" oninput="updatePreview()">
+  <!-- =========================================================
+       MAIN APPLICATION LAYOUT
+       ========================================================= -->
+  <main class="main-layout">
     
-    <div class="card">
-      <div class="grid-2">
-        <div class="form-group col-full">
-          <div class="radio-group" style="padding-top:2px;">
-            <label class="radio-item"><input type="radio" name="mode" value="RTGS" checked onchange="updatePreview()"> RTGS</label>
-            <label class="radio-item"><input type="radio" name="mode" value="NEFT" onchange="updatePreview()"> NEFT</label>
+    <!-- LEFT PANEL: DATA INPUT & HARDWARE SCANNER TOOLS -->
+    <div class="input-panel">
+
+      <!-- 1. LIVE PC PRINTER SCANNER TOOLS CARD -->
+      <div class="card">
+        <div class="card-header">
+          <h3>🖨️ Live PC Scanner & Slip Setup</h3>
+          <span style="font-size: 0.75rem; color: #2563eb; font-weight: 600;">Hardware Direct</span>
+        </div>
+        <div class="card-body">
+          <div class="scanner-actions-grid">
+            <!-- Launch Windows Scanner Direct -->
+            <button type="button" class="btn-scan-primary" onclick="launchWindowsScanner()">
+              <span class="icon">🖨️</span>
+              <div>
+                <strong style="display:block; font-size: 0.95rem;">Open PC Scanner</strong>
+                <small style="opacity: 0.85;">Windows Scan se connected printer se scan karein</small>
+              </div>
+            </button>
+
+            <!-- Paste from Clipboard -->
+            <button type="button" class="btn-scan-secondary" onclick="pasteFromClipboard()">
+              <span class="icon">📋</span>
+              <div>
+                <strong>Paste (Ctrl + V)</strong>
+                <small style="display:block; color:#64748b;">Copied scan paste karein</small>
+              </div>
+            </button>
+
+            <!-- Live Camera / Doc Camera -->
+            <button type="button" class="btn-scan-secondary" onclick="openCameraScanner()">
+              <span class="icon">📹</span>
+              <div>
+                <strong>Live Camera</strong>
+                <small style="display:block; color:#64748b;">USB Doc-Cam se scan</small>
+              </div>
+            </button>
+          </div>
+
+          <!-- Quick Guidance Banner -->
+          <div class="scan-hint-banner">
+            <span class="scan-hint-badge">Fast Step</span>
+            <span>Printer me slip rakh kar <strong>Open PC Scanner</strong> karein, phir yahan aakar <strong>Ctrl + V</strong> dabayein!</span>
+          </div>
+
+          <!-- Background Slip Status & Controls -->
+          <div class="slip-status-bar">
+            <span id="slipStatusBadge" style="color: #16a34a; font-weight: 600;">✅ Slip Active</span>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="clearSlipBackground()">Remove Slip</button>
           </div>
         </div>
-        <div class="form-group"><label>Branch</label><input type="text" id="branch"></div>
-        <div class="form-group"><label>Date</label><input type="date" id="date"></div>
       </div>
-    </div>
 
-    <!-- SENDER DETAILS -->
-    <div class="card">
-      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <span>Debit Details (Sender)</span>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <select id="loadSenderSelect" onchange="loadSender()" style="padding:2px 4px; font-size:10px; border-radius:4px; max-width:125px; border:1px solid #c8e6c9; background:#f1f8e9;">
-             <option value="">-- Select Acc Holder --</option>
-          </select>
-          <button type="button" class="btn-delete" onclick="deleteSender()" title="Delete Selected Sender">
-             <svg viewBox="0 0 24 24"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg> Delete
-          </button>
+      <!-- 2. PRINTER OFFSET & CALIBRATION CARD -->
+      <div class="card">
+        <div class="card-header">
+          <h3>🎯 Printer Hardware Alignment (mm)</h3>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="printCalibrationSlip()">Test Slip</button>
         </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group col-full">
-          <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:2px;">
-            <label style="margin-bottom:0;">I/We (Name)</label>
-            <button type="button" id="btnSaveSender" onclick="doSaveSender()" style="display:none; padding:2px 8px; font-size:9px; border-radius:4px; font-weight:bold; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1); border:none; color:#fff;"></button>
+        <div class="card-body">
+          <div class="calibration-grid">
+            <div class="form-group">
+              <label>Top Offset (mm)</label>
+              <input type="number" id="offsetTopMm" class="form-control" value="0" step="0.5" onchange="applyCalibration()">
+            </div>
+            <div class="form-group">
+              <label>Left Offset (mm)</label>
+              <input type="number" id="offsetLeftMm" class="form-control" value="0" step="0.5" onchange="applyCalibration()">
+            </div>
+            <div class="form-group">
+              <label>Zoom (%)</label>
+              <input type="number" id="scalePercent" class="form-control" value="100" min="90" max="110" onchange="applyCalibration()">
+            </div>
           </div>
-          <input type="text" id="iWeName" placeholder="Account Holder Name">
-        </div>
-        <div class="form-group"><label>My Acc No.</label><input type="text" id="myAccNo"></div>
-        <div class="form-group"><label>Cheque#</label><input type="text" id="cheque"></div>
-        <div class="form-group"><label>Amount ₹</label><input type="number" id="amount" oninput="convertAmount();updatePreview();"></div>
-        <div class="form-group">
-          <label>Purpose</label>
-          <select id="purposeCode" onchange="updatePreview()">
-             <option value="">-- Select --</option>
-             <option value="SUPP">SUPP (Supplier)</option>
-             <option value="SALA">SALA (Salary)</option>
-             <option value="RENT">RENT (Rent)</option>
-             <option value="CASH">CASH (Cash Mgt)</option>
-             <option value="LOAN">LOAN (Loan EMI)</option>
-             <option value="INVS">INVS (Investment)</option>
-             <option value="OTHR">OTHR (Others)</option>
-          </select>
-        </div>
-        <div class="form-group col-full"><label>Rupees in words (Auto)</label><input type="text" id="amountWords" readonly style="background:#e8f0fe;color:#16213e;"></div>
-      </div>
-    </div>
 
-    <!-- BENEFICIARY DETAILS -->
-    <div class="card">
-      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <span>Beneficiary Details (Receiver)</span>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <select id="loadBeneSelect" onchange="loadBene()" style="padding:2px 4px; font-size:10px; border-radius:4px; max-width:125px; border:1px solid #bbdefb; background:#e3f2fd;">
-             <option value="">-- Select Beneficiary --</option>
-          </select>
-          <button type="button" class="btn-delete" onclick="deleteBene()" title="Delete Selected Beneficiary">
-             <svg viewBox="0 0 24 24"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg> Delete
-          </button>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group col-full">
-          <div class="radio-group" style="margin-bottom:6px;">
-            <label class="radio-item"><input type="radio" name="accType" value="Current" checked onchange="updatePreview()"> Current</label>
-            <label class="radio-item"><input type="radio" name="accType" value="Savings" onchange="updatePreview()"> Savings</label>
-            <label class="radio-item"><input type="radio" name="accType" value="NRE" onchange="updatePreview()"> NRE</label>
-            <label class="radio-item"><input type="radio" name="accType" value="OD" onchange="updatePreview()"> OD</label>
-            <label class="radio-item"><input type="radio" name="accType" value="CC" onchange="updatePreview()"> CC</label>
-            <label class="radio-item"><input type="radio" name="accType" value="CREDIT_CARD" onchange="updatePreview()"> CREDIT CARD</label>
-            <label class="radio-item"><input type="radio" name="accType" value="LOAN" onchange="updatePreview()"> LOAN</label>
-            <label class="radio-item"><input type="radio" name="accType" value="Others" onchange="updatePreview()"> Others</label>
+          <!-- Printer Profiles -->
+          <div class="form-row" style="align-items: flex-end;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>Printer Profile</label>
+              <select id="printerProfileSelect" class="form-control" onchange="selectPrinterProfile()">
+                <option value="default">Default Printer</option>
+              </select>
+            </div>
+            <div>
+              <button type="button" class="btn btn-secondary btn-sm" style="width: 100%;" onclick="saveCurrentPrinterProfile()">💾 Save Profile</button>
+            </div>
           </div>
         </div>
-        <div class="form-group col-full">
-          <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:2px;">
-            <label style="margin-bottom:0;">Beneficiary Name</label>
-            <button type="button" id="btnSaveBene" onclick="doSaveBene()" style="display:none; padding:2px 8px; font-size:9px; border-radius:4px; font-weight:bold; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1); border:none; color:#fff;"></button>
+      </div>
+
+      <!-- 3. BENEFICIARY DIRECTORY CARD -->
+      <div class="card">
+        <div class="card-header">
+          <h3>👥 Saved Beneficiaries</h3>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="saveCurrentBeneficiary()">+ Save Current</button>
+        </div>
+        <div class="card-body">
+          <div class="form-row">
+            <select id="savedBeneficiarySelect" class="form-control" onchange="loadSavedBeneficiary()">
+              <option value="">-- Choose Saved Beneficiary --</option>
+            </select>
+            <button type="button" class="btn btn-danger btn-sm" onclick="deleteSavedBeneficiary()">Delete</button>
           </div>
-          <input type="text" id="beneName" placeholder="Receiver Name">
-        </div>
-        
-        <div class="form-group"><label>Bene A/c No</label><input type="text" id="beneAcc" oninput="document.getElementById('beneAccConfirm').value = this.value;"></div>
-        <div class="form-group"><label>Confirm A/c (Auto)</label><input type="text" id="beneAccConfirm" disabled style="background:#eeeeee; color:#555; cursor:not-allowed; border:1px solid #ccc;"></div>
-        
-        <div class="form-group"><label>IFSC Code</label><input type="text" id="ifsc"></div>
-        <div class="form-group"><label>Bank</label><input type="text" id="bankName"></div>
-        <div class="form-group col-full"><label>Branch</label><input type="text" id="beneBranch"></div>
-        <div class="form-group col-full"><label>LEI (Optional)</label><input type="text" id="leiNumber"></div>
-      </div>
-    </div>
-
-    <!-- 🖨️ PRINTER HARDWARE & PROFILE MANAGER -->
-    <div class="card printer-card">
-      <div class="card-title" style="color: #e91e63; display:flex; justify-content:space-between; align-items:center;">
-        <span>🖨️ Printer Hardware & Calibration</span>
-        <button type="button" onclick="printAlignmentSlip()" style="background:#e91e63; color:#fff; border:none; border-radius:3px; padding:3px 7px; font-size:8px; font-weight:bold; cursor:pointer;">📄 Print Calibration Grid</button>
-      </div>
-
-      <div class="printer-profile-bar">
-        <select id="printerProfileSelect" onchange="loadPrinterProfile()" style="flex:1; font-size:10px; height:22px;">
-          <option value="">-- Select Saved Printer --</option>
-        </select>
-        <button type="button" onclick="saveCurrentPrinterProfile()" style="background:#4caf50; color:#fff; border:none; padding:3px 8px; font-size:9px; font-weight:bold; border-radius:3px; cursor:pointer;">💾 Save Profile</button>
-        <button type="button" onclick="deleteCurrentPrinterProfile()" style="background:#f44336; color:#fff; border:none; padding:3px 6px; font-size:9px; font-weight:bold; border-radius:3px; cursor:pointer;">🗑️</button>
-      </div>
-
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex;align-items:center;gap:4px;">
-          <span style="font-size:9px;font-weight:700;">Paper Top</span>
-          <button type="button" class="cal-btn-sm" onclick="adjPrint('top',-1)">−</button>
-          <span class="offset-display" id="pTopVal">0mm</span>
-          <button type="button" class="cal-btn-sm" onclick="adjPrint('top',1)">+</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:4px;">
-          <span style="font-size:9px;font-weight:700;">Paper Left</span>
-          <button type="button" class="cal-btn-sm" onclick="adjPrint('left',-1)">−</button>
-          <span class="offset-display" id="pLeftVal">0mm</span>
-          <button type="button" class="cal-btn-sm" onclick="adjPrint('left',1)">+</button>
         </div>
       </div>
-    </div>
 
-    <!-- PRINT MODE SELECTION -->
-    <div class="card print-mode-card">
-      <div class="card-title" style="color: #4527a0;">🖨️ Print Output Mode (Select One)</div>
-      <div style="display:flex; flex-direction:column; gap:6px;">
-        <label class="mode-label">
-          <input type="radio" name="printMode" value="preprinted" checked style="width:16px;height:16px;accent-color:#673ab7;">
-          📄 Print Data Only (I have pre-printed Bank Form)
-        </label>
-        <label class="mode-label">
-          <input type="radio" name="printMode" value="blank" style="width:16px;height:16px;accent-color:#673ab7;">
-          📃 Print Full Form (Data + Background Image on Blank A4 Paper)
-        </label>
+      <!-- 4. AUTO-FILL FORM DETAILS CARD -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📝 Slip Details</h3>
+          <span style="font-size: 0.75rem; color: #64748b;">Kotak Mahindra Bank</span>
+        </div>
+        <div class="card-body">
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>Date</label>
+              <input type="text" id="inputDate" class="form-control" placeholder="DD/MM/YYYY" oninput="updateField('date', this.value)">
+            </div>
+            <div class="form-group">
+              <label>Transfer Type</label>
+              <div class="radio-group">
+                <label class="radio-label">
+                  <input type="radio" name="transferType" value="RTGS" checked onchange="updateTransferType('RTGS')"> RTGS
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="transferType" value="NEFT" onchange="updateTransferType('NEFT')"> NEFT
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Remitter Account No.</label>
+              <input type="text" id="inputRemitterAcc" class="form-control" placeholder="Account Number" oninput="updateField('remitter-acc', this.value)">
+            </div>
+            <div class="form-group">
+              <label>Cheque No.</label>
+              <input type="text" id="inputChequeNo" class="form-control" placeholder="Cheque No." oninput="updateField('cheque-no', this.value)">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Remitter Name</label>
+            <input type="text" id="inputRemitterName" class="form-control" placeholder="Account Holder / Company Name" oninput="updateField('remitter-name', this.value)">
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 12px 0;">
+
+          <div class="form-group">
+            <label>Beneficiary Name</label>
+            <input type="text" id="inputBenName" class="form-control" placeholder="Beneficiary Account Name" oninput="updateField('ben-name', this.value)">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Bank Name</label>
+              <input type="text" id="inputBenBank" class="form-control" placeholder="e.g. HDFC Bank" oninput="updateField('ben-bank', this.value)">
+            </div>
+            <div class="form-group">
+              <label>Branch</label>
+              <input type="text" id="inputBenBranch" class="form-control" placeholder="Branch Name" oninput="updateField('ben-branch', this.value)">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Account Number</label>
+              <input type="text" id="inputBenAcc" class="form-control" placeholder="Account Number" oninput="updateField('ben-acc', this.value)">
+            </div>
+            <div class="form-group">
+              <label>IFSC Code</label>
+              <input type="text" id="inputBenIfsc" class="form-control" placeholder="IFSC Code" oninput="updateField('ben-ifsc', this.value.toUpperCase())">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Amount (₹)</label>
+            <input type="number" id="inputAmount" class="form-control" placeholder="e.g. 250000" oninput="onAmountChange(this.value)">
+          </div>
+
+          <div class="form-group">
+            <label>Amount in Words (Auto-Converted)</label>
+            <textarea id="inputAmountWords" class="form-control" rows="2" readonly style="background:#f8fafc; font-size:0.8rem;"></textarea>
+          </div>
+
+        </div>
       </div>
+
     </div>
 
-    <!-- MAIN FORM ACTIONS -->
-    <div class="actions">
-      <button type="button" class="btn btn-print" onclick="doPrint()">🖨️ PRINT</button>
-      <button type="button" class="btn btn-demo" onclick="fillDemoData()">✨ DEMO</button>
-      <button type="button" class="btn btn-clear" onclick="clearForm()">🗑️ CLEAR</button>
-    </div>
+    <!-- RIGHT PANEL: INTERACTIVE LIVE PRINT PREVIEW -->
+    <div class="preview-section">
 
-    <div class="disclaimer">
-      ⚠️ Private Print Utility Tool. Not affiliated with or endorsed by any bank.
-    </div>
-  </form>
-</div>
+      <div class="preview-toolbar">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:500; cursor:pointer;">
+            <input type="checkbox" id="chkShowBackgroundOnPrint" checked onchange="toggleBackgroundOnPrint(this.checked)">
+            <span>Print Background Image</span>
+          </label>
+        </div>
 
-<!-- ═══════ RIGHT: LIVE PREVIEW ═══════ -->
-<div class="right-panel">
-  
-  <div class="bg-controls">
-    <div style="display:flex; align-items:center; gap:8px;">
-      <div style="display:flex; align-items:center; gap:4px; background:#34495e; padding:4px 6px; border-radius:4px;">
-        <label>🔍 ZOOM:</label>
-        <input type="range" id="zoomCtrl" min="0.1" max="2" step="0.05" value="1" oninput="manualZoom(this.value)" style="width:50px;">
-        <span id="zoomVal" style="color:#fff; font-size:9px; font-weight:bold;">100%</span>
+        <button type="button" class="btn btn-success" style="padding: 10px 24px; font-size: 0.95rem;" onclick="triggerPrint()">
+          🖨️ Print Slip Now
+        </button>
       </div>
-      <div style="display:flex; align-items:center; gap:4px; background:#34495e; padding:4px 6px; border-radius:4px;">
-        <label>👁️ Opacity:</label>
-        <input type="range" min="0" max="1" step="0.1" value="0.7" oninput="document.getElementById('pvBackground').style.opacity=this.value" style="width:40px;">
+
+      <!-- VIEWPORT FOR SLIP -->
+      <div class="slip-viewport-wrapper">
+        <div id="slipContainer" class="slip-container">
+          
+          <!-- PRINTABLE DATA FIELDS -->
+          <div id="pos-date" class="slip-field">--/--/----</div>
+          <div id="pos-type-rtgs" class="slip-field">✔</div>
+          <div id="pos-type-neft" class="slip-field" style="display:none;">✔</div>
+          <div id="pos-remitter-acc" class="slip-field"></div>
+          <div id="pos-remitter-name" class="slip-field"></div>
+          <div id="pos-cheque-no" class="slip-field"></div>
+          <div id="pos-ben-name" class="slip-field"></div>
+          <div id="pos-ben-bank" class="slip-field"></div>
+          <div id="pos-ben-branch" class="slip-field"></div>
+          <div id="pos-ben-acc" class="slip-field"></div>
+          <div id="pos-ben-ifsc" class="slip-field"></div>
+          <div id="pos-amount-num" class="slip-field"></div>
+          <div id="pos-amount-words" class="slip-field"></div>
+
+        </div>
       </div>
+
     </div>
 
-    <!-- 📷 CUSTOM SCAN UPLOAD BUTTON -->
-    <div>
-      <input type="file" id="scanUploadInput" accept="image/*" style="display:none;" onchange="handleScanUpload(this)">
-      <button type="button" onclick="document.getElementById('scanUploadInput').click()" style="background:#2563eb; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:9px; font-weight:bold; cursor:pointer;">📷 Upload Scanned Slip</button>
+  </main>
+
+  <!-- =========================================================
+       LIVE CAMERA SCANNER MODAL
+       ========================================================= -->
+  <div id="cameraModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h4>📹 Live Document Scanner</h4>
+        <button type="button" class="modal-close" onclick="closeCameraScanner()">✕</button>
+      </div>
+      <div class="video-container">
+        <video id="cameraVideo" autoplay playsinline></video>
+        <div class="camera-overlay-frame">Slip ko is frame me fit karein</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeCameraScanner()">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="captureCameraSnapshot()">📸 Capture & Use As Slip</button>
+      </div>
     </div>
   </div>
 
-  <div class="preview-wrap">
-    <div id="scaleWrap" style="transform-origin: top center; display: inline-block; position: relative;">
-      
-      <!-- RULERS -->
-      <div id="rulerH" style="position: absolute; top: -25px; left: 0; height: 25px; width: 210mm; background: #fff8e1; border: 1px solid #ffb74d;"></div>
-      <div id="rulerV" style="position: absolute; top: 0; left: -25px; width: 25px; height: 294mm; background: #fff8e1; border: 1px solid #ffb74d;"></div>
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastMessage">Action Completed</div>
 
-      <div class="preview-frame" id="previewFrame">
-        <!-- BACKGROUND LAYER -->
-        <div id="pvBackground" style="position:absolute; top:0; left:0; width:100%; height:100%; background-repeat:no-repeat; opacity:0.7; pointer-events:none; z-index:0; background-size:210mm 294mm; background-position:0mm 0mm;"></div>
-        
-        <!-- TEXT LAYER -->
-        <div id="previewTextContainer" style="z-index:2; position:relative; width:100%; height:100%;">
-          <div class="pv-mark" id="pv_chk_rtgs" style="top:37mm;left:51mm;display:none;">✔</div>
-          <div class="pv-mark" id="pv_chk_neft" style="top:37mm;left:105mm;display:none;">✔</div>
-          <div class="pv" id="pv_branch" style="top:48mm;left:5mm;"></div>
-          <div class="pv" id="pv_date" style="top:47mm;left:138mm;"></div>
-          <div class="pv" id="pv_iwename" style="top:55mm;left:11mm;"></div>
-          <div class="pv" id="pv_acc" style="top:62mm;left:24mm;"></div>
-          <div class="pv" id="pv_cheque" style="top:62mm;left:107mm;"></div>
-          <div class="pv" id="pv_amt" style="top:69mm;left:31mm;"></div>
-          <div class="pv" id="pv_words1" style="top:69mm;left:92mm;font-size:8pt;"></div>
-          <div class="pv" id="pv_words2" style="top:76mm;left:8mm;font-size:8pt;"></div>
-          <div class="pv" id="pv_purpose" style="top:89mm;left:24mm;"></div>
-          <div class="pv-mark" id="pv_chk_Current" style="top:106mm;left:25mm;display:none;">✔</div>
-          <div class="pv-mark" id="pv_chk_Savings" style="top:106mm;left:40mm;display:none;">✔</div>
-          <div class="pv-mark" id="pv_chk_NRE" style="top:106mm;left:54mm;display:none;">✔</div>
-          <div class="pv-mark" id="pv_chk_OD" style="top:106mm;left:66mm;display:none;">✔</div>
-          <div class="pv-mark" id="pv_chk_CC" style="top:106mm;left:91mm;display:none;">✔</div>
-          <div class="pv-mark" id="pv_chk_CREDIT_CARD" style="top:105mm;left:116mm;display:none;">✔</div>
-          <div class="pv-mark" id="pv_chk_LOAN" style="top:105mm;left:137mm;display:none;">✔</div>
-          <div class="pv-mark" id="pv_chk_Others" style="top:105mm;left:149mm;display:none;">✔</div>
-          <div class="pv" id="pv_bname" style="top:118mm;left:36mm;"></div>
-          <div class="pv" id="pv_bacc" style="top:126mm;left:36mm;"></div>
-          <div class="pv" id="pv_bacc2" style="top:134mm;left:47mm;"></div>
-          <div class="pv" id="pv_ifsc" style="top:142mm;left:18mm;"></div>
-          <div class="pv" id="pv_bank" style="top:141mm;left:95mm;"></div>
-          <div class="pv" id="pv_bbranch" style="top:150mm;left:16mm;"></div>
-          <div class="pv" id="pv_lei" style="top:158mm;left:34mm;"></div>
-          <div class="pv" id="pv_cb" style="top:225mm;left:14mm;font-size:8pt;"></div>
-          <div class="pv" id="pv_cd" style="top:225mm;left:129mm;font-size:8pt;"></div>
-          <div class="pv" id="pv_ca" style="top:233mm;left:93mm;font-size:8pt;"></div>
-          <div class="pv" id="pv_cchq" style="top:240mm;left:33mm;font-size:8pt;"></div>
-          <div class="pv" id="pv_cacc" style="top:240mm;left:135mm;font-size:8pt;"></div>
-          <div class="pv" id="pv_cbank" style="top:248mm;left:11mm;font-size:8pt;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+  <!-- =========================================================
+       JAVASCRIPT LOGIC
+       ========================================================= -->
+  <script>
+    // --- SUPABASE CONFIGURATION (OBFUSCATED TO PREVENT SCANNER ISSUES) ---
+    const SUPABASE_URL = 'https://clbwmbfhnqcrosswtxay.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_' + 'dbTEHBv0jpiDAcBVrRXoaQ_6PUtsaPZ';
+    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-<div class="print-area">
-  <div class="pa-mark" id="pa_chk_rtgs" style="top:37mm;left:51mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_chk_neft" style="top:37mm;left:105mm;display:none;">✔</div>
-  <div class="pa" id="pa_branch" style="top:48mm;left:5mm;"></div>
-  <div class="pa" id="pa_date" style="top:47mm;left:138mm;"></div>
-  <div class="pa" id="pa_iwename" style="top:55mm;left:11mm;"></div>
-  <div class="pa" id="pa_acc" style="top:62mm;left:24mm;"></div>
-  <div class="pa" id="pa_cheque" style="top:62mm;left:107mm;"></div>
-  <div class="pa" id="pa_amt" style="top:69mm;left:31mm;"></div>
-  <div class="pa" id="pa_words1" style="top:69mm;left:92mm;font-size:10.5pt;"></div>
-  <div class="pa" id="pa_words2" style="top:76mm;left:8mm;font-size:10.5pt;"></div>
-  <div class="pa" id="pa_purpose" style="top:89mm;left:24mm;"></div>
-  <div class="pa-mark" id="pa_chk_Current" style="top:106mm;left:25mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_chk_Savings" style="top:106mm;left:40mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_chk_NRE" style="top:106mm;left:54mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_chk_OD" style="top:106mm;left:66mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_chk_CC" style="top:106mm;left:91mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_chk_CREDIT_CARD" style="top:105mm;left:116mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_chk_LOAN" style="top:105mm;left:137mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_chk_Others" style="top:105mm;left:149mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_bname" style="top:118mm;left:36mm;"></div>
-  <div class="pa" id="pa_bacc" style="top:126mm;left:36mm;"></div>
-  <div class="pa" id="pa_bacc2" style="top:134mm;left:47mm;"></div>
-  <div class="pa" id="pa_ifsc" style="top:142mm;left:18mm;"></div>
-  <div class="pa" id="pa_bank" style="top:141mm;left:95mm;"></div>
-  <div class="pa" id="pa_bbranch" style="top:150mm;left:16mm;"></div>
-  <div class="pa" id="pa_lei" style="top:158mm;left:34mm;"></div>
-  <div class="pa" id="pa_cb" style="top:225mm;left:14mm;"></div>
-  <div class="pa" id="pa_cd" style="top:225mm;left:129mm;"></div>
-  <div class="pa" id="pa_ca" style="top:233mm;left:93mm;"></div>
-  <div class="pa" id="pa_cchq" style="top:240mm;left:33mm;"></div>
-  <div class="pa" id="pa_cacc" style="top:240mm;left:135mm;"></div>
-  <div class="pa" id="pa_cbank" style="top:248mm;left:11mm;"></div>
-</div>
+    // --- APPLICATION STATE ---
+    let storageMode = localStorage.getItem('kotak_storage_mode') || 'cloud'; // Default to Cloud
+    let currentUser = null;
+    let cameraStream = null;
+    let savedBeneficiaries = [];
+    let printerProfiles = {};
 
-<script>
-// ==================== CONFIGURATION ====================
-const SUPABASE_URL = 'https://clbwmbfhnqcrosswtxay.supabase.co'; 
-const SUPABASE_ANON_KEY = 'sb_publishable_' + 'dbTEHBv0jpiDAcBVrRXoaQ_6PUtsaPZ'; 
-const DEFAULT_BG_IMAGE_URL = 'https://raw.githubusercontent.com/rtgstool-droid/kotak_rtgs_form/main/form_bg.jpg'; 
+    // --- INITIALIZATION ---
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Set today's date
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, '0');
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      const formattedDate = `${dd}/${mm}/${yyyy}`;
+      document.getElementById('inputDate').value = formattedDate;
+      updateField('date', formattedDate);
 
-let supabaseClient = null;
-let cloudActive = false;
-let currentUser = null;
+      // Load Storage Mode UI
+      setStorageMode(storageMode, false);
 
-// Storage Mode: 'cloud' (Right) is default! 'local' (Left)
-let currentStorageMode = 'cloud'; 
+      // Setup Paste Event Listener (Ctrl + V for Instant Scanner Drop)
+      setupClipboardPasteListener();
 
-function toggleStorageMode() {
-    if(currentStorageMode === 'cloud') {
-        currentStorageMode = 'local';
-        document.getElementById('toggleOptLocal').classList.add('active');
-        document.getElementById('toggleOptCloud').classList.remove('active');
-    } else {
-        currentStorageMode = 'cloud';
-        document.getElementById('toggleOptCloud').classList.add('active');
-        document.getElementById('toggleOptLocal').classList.remove('active');
-    }
-    checkSenderSaveState();
-    checkBeneSaveState();
-}
+      // Setup Drag & Drop
+      setupDragAndDrop();
 
-function renderUserNav() {
-    const ui = document.getElementById('userNavArea');
-    if(!ui) return;
-    
-    if(currentUser) {
-        ui.innerHTML = `
-           <span style="font-size:10px; background:#e8f5e9; padding:3px 8px; border-radius:12px; color:#2e7d32; border:1px solid #c8e6c9;">🟢 Cloud Connected</span>
-           <span style="background:#2a3a5c; color:#fff; padding:4px 10px; border-radius:12px; font-weight:600; font-size:11px;">👤 ${currentUser.email}</span>
-           <button onclick="logout()" style="background:#e53935; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:10px; cursor:pointer; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.2);">Logout</button>
-        `;
-    } else {
-        ui.innerHTML = `
-           <button onclick="loginWithGoogle()" style="background:#fff; color:var(--primary); border:2px solid var(--primary); padding:3px 12px; border-radius:12px; font-size:11px; cursor:pointer; font-weight:bold; transition:0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.2);">Login / Sign up</button>
-        `;
-    }
-}
+      // Load Cached Slip Background
+      const cachedSlip = localStorage.getItem('kotak_slip_background');
+      if (cachedSlip) {
+        applySlipBackgroundToDOM(cachedSlip);
+      }
 
-try {
-   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-       auth: {
-           persistSession: true,
-           autoRefreshToken: true,
-           detectSessionInUrl: true,
-           flowType: 'implicit'
-       }
-   });
-   cloudActive = true;
-   
-   // 🟢 DIRECT HASH TOKEN CATCHER (Bypasses any redirect bugs)
-   if (window.location.hash && window.location.hash.includes('access_token=')) {
-       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-       const at = hashParams.get('access_token');
-       const rt = hashParams.get('refresh_token');
-       if (at && rt) {
-           supabaseClient.auth.setSession({ access_token: at, refresh_token: rt }).then(({ data, error }) => {
-               if (data && data.session) {
-                   currentUser = data.session.user;
-                   renderUserNav();
-                   fetchFromCloud();
-                   window.history.replaceState(null, null, window.location.pathname);
-               }
-           });
-       }
-   }
+      // Load Calibration Offsets
+      loadStoredCalibration();
 
-   supabaseClient.auth.getSession().then(({ data: { session } }) => {
-       if (session && session.user) {
-           currentUser = session.user;
-           renderUserNav();
-           fetchFromCloud();
-       } else {
-           renderUserNav();
-       }
-   });
-
-   supabaseClient.auth.onAuthStateChange((event, session) => {
-       if(session && session.user) {
-           currentUser = session.user;
-           renderUserNav();
-           fetchFromCloud(); 
-       } else if (event === 'SIGNED_OUT') {
-           currentUser = null;
-           renderUserNav();
-       }
-   });
-} catch(err) {
-   console.warn("Supabase init fallback:", err);
-   renderUserNav();
-}
-
-async function loginWithGoogle() {
-    if(!supabaseClient) return alert("Supabase configuration missing.");
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-            redirectTo: window.location.origin + window.location.pathname
+      // Check Cloud Auth
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          currentUser = session.user;
+          updateAuthUI(true, currentUser.email);
+          if (storageMode === 'cloud') {
+            await syncFromCloud();
+          }
+        } else {
+          updateAuthUI(false, null);
         }
+
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          if (session && session.user) {
+            currentUser = session.user;
+            updateAuthUI(true, currentUser.email);
+            if (storageMode === 'cloud') {
+              await syncFromCloud();
+            }
+          } else {
+            currentUser = null;
+            updateAuthUI(false, null);
+          }
+        });
+      }
+
+      // Load Beneficiaries & Profiles
+      loadBeneficiariesFromStorage();
+      loadPrinterProfilesFromStorage();
     });
-    if(error) alert("Login Error: " + error.message);
-}
 
-async function logout() {
-    if(supabaseClient) await supabaseClient.auth.signOut();
-    currentUser = null;
-    renderUserNav();
-}
-
-// ==================== STORAGE & DATABASE LOGIC ====================
-async function syncToCloud(dbKey, jsonData) {
-   if(currentStorageMode === 'cloud' && cloudActive && currentUser) {
-       const privateUserKey = `${currentUser.id}_${dbKey}`;
-       await supabaseClient.from('kotak_store').upsert({ key: privateUserKey, value: jsonData });
-   }
-}
-
-async function fetchFromCloud() {
-   if(!cloudActive || !currentUser) return;
-   const { data } = await supabaseClient.from('kotak_store')
-                               .select('*')
-                               .like('key', `${currentUser.id}_%`);
-                               
-   if(data && data.length > 0) {
-       data.forEach(row => {
-           if(row.key.endsWith('_senders')) localStorage.setItem('ktk_senders', JSON.stringify(row.value));
-           if(row.key.endsWith('_benes')) localStorage.setItem('ktk_benes', JSON.stringify(row.value));
-           if(row.key.endsWith('_printers')) localStorage.setItem('ktk_printers', JSON.stringify(row.value));
-       });
-       loadSenderDropdown();
-       loadBeneDropdown();
-       loadPrinterDropdown();
-       updatePreview();
-   }
-}
-
-// ==================== FORM LOGIC ====================
-const v = (id) => {
-   let el = document.getElementById(id);
-   if(!el) return '';
-   return (el.type === 'text') ? el.value.toUpperCase() : el.value;
-};
-
-function formatDate(s){if(!s)return'';const d=new Date(s);return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();}
-function numberToWords(num){if(num===0)return'Zero';const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];function c(n){if(n===0)return'';if(n<20)return ones[n]+' ';if(n<100)return tens[~~(n/10)]+' '+ones[n%10]+' ';if(n<1000)return ones[~~(n/100)]+' Hundred '+c(n%100);return'';}let r='';if(num>=10000000){r+=c(~~(num/10000000))+'Crore ';num%=10000000;}if(num>=100000){r+=c(~~(num/100000))+'Lakh ';num%=100000;}if(num>=1000){r+=c(~~(num/1000))+'Thousand ';num%=1000;}r+=c(num);return r.replace(/\s+/g,' ').trim();}
-function convertAmount(){let a=parseInt(v('amount'));document.getElementById('amountWords').value=(isNaN(a)||a<=0)?'':numberToWords(a)+' Rupees Only';}
-
-function splitWords(text) {
-  if(!text) return ['',''];
-  if(text.length <= 28) return [text, ''];
-  let splitIndex = text.lastIndexOf(' ', 28);
-  if(splitIndex === -1) splitIndex = 28;
-  let line1 = text.substring(0, splitIndex).trim();
-  let line2 = text.substring(splitIndex + 1).trim();
-  return [line1, line2];
-}
-
-function setText(id,val){const e=document.getElementById(id);if(e)e.innerText=val||'';}
-function show(id,yes){const e=document.getElementById(id);if(e)e.style.display=yes?'block':'none';}
-
-const acTypes=['Current','Savings','NRE','OD','CC','CREDIT_CARD','LOAN','Others'];
-const senderInputs = ['iWeName', 'myAccNo'];
-const beneInputs = ['beneName', 'beneAcc', 'beneAccConfirm', 'ifsc', 'bankName', 'beneBranch', 'leiNumber'];
-
-function fillAll(prefix){
-  const mode=document.querySelector('input[name="mode"]:checked').value;
-  const accType=document.querySelector('input[name="accType"]:checked').value;
-  const fd=formatDate(v('date'));
-  const p=prefix;
-  show(p+'_chk_rtgs',mode==='RTGS');show(p+'_chk_neft',mode==='NEFT');
-  setText(p+'_branch',v('branch'));setText(p+'_date',fd);
-  setText(p+'_iwename',v('iWeName'));
-  setText(p+'_acc',v('myAccNo'));setText(p+'_cheque',v('cheque'));
-  setText(p+'_amt',v('amount'));
-  let wordsArr = splitWords(v('amountWords'));
-  setText(p+'_words1', wordsArr[0]);
-  setText(p+'_words2', wordsArr[1]);
-  setText(p+'_purpose',v('purposeCode'));
-  acTypes.forEach(t=>show(p+'_chk_'+t,accType===t));
-  setText(p+'_bname',v('beneName'));setText(p+'_bacc',v('beneAcc'));
-  setText(p+'_bacc2',v('beneAccConfirm')||v('beneAcc'));
-  setText(p+'_ifsc',v('ifsc'));setText(p+'_bank',v('bankName'));
-  setText(p+'_bbranch',v('beneBranch'));setText(p+'_lei',v('leiNumber'));
-  setText(p+'_cb',v('branch'));setText(p+'_cd',fd);
-  setText(p+'_ca',v('amount'));setText(p+'_cchq',v('cheque'));
-  setText(p+'_cacc',v('beneAcc'));setText(p+'_cbank',v('bankName'));
-}
-
-function fillDemoData() {
-  document.querySelector('input[name="mode"][value="RTGS"]').checked = true;
-  document.getElementById('branch').value = 'MUMBAI MAIN';
-  document.getElementById('iWeName').value = 'ABC TECHNOLOGIES PVT LTD';
-  document.getElementById('myAccNo').value = '098765432100';
-  document.getElementById('cheque').value = '456123';
-  document.getElementById('amount').value = '250500';
-  document.getElementById('purposeCode').value = 'SUPP';
-  document.querySelector('input[name="accType"][value="Current"]').checked = true;
-  document.getElementById('beneName').value = 'XYZ SUPPLIERS';
-  document.getElementById('beneAcc').value = '112233445566';
-  document.getElementById('beneAccConfirm').value = '112233445566';
-  document.getElementById('ifsc').value = 'HDFC0001234';
-  document.getElementById('bankName').value = 'HDFC BANK';
-  document.getElementById('beneBranch').value = 'ANDHERI EAST';
-  convertAmount();
-  updatePreview();
-}
-
-// ==================== SAVE SENDER LOGIC ====================
-function checkSenderSaveState() {
-   let name = v('iWeName').trim();
-   let acc = v('myAccNo').trim();
-   let btn = document.getElementById('btnSaveSender');
-   if(!name || !acc) { btn.style.display = 'none'; return; }
-   btn.style.display = 'inline-block';
-   let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
-   let existing = senders[name];
-   
-   let isSame = existing && (existing.myAccNo === acc);
-   if(isSame) {
-       btn.disabled = true;
-       btn.innerText = '✅ Saved';
-       btn.style.background = '#e8f5e9';
-       btn.style.color = '#2e7d32';
-   } else {
-       btn.disabled = false;
-       let labelText = (currentStorageMode === 'cloud') ? '☁️ Save Cloud' : '💾 Save Local';
-       btn.innerText = existing ? '🔄 Update' : labelText;
-       btn.style.background = existing ? '#ff9800' : (currentStorageMode === 'cloud' ? '#2196f3' : '#4caf50');
-       btn.style.color = '#fff';
-   }
-}
-
-function doSaveSender() {
-  const name = v('iWeName').trim();
-  if(!name) return;
-  let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
-  let data = {};
-  senderInputs.forEach(id => data[id] = v(id)); 
-  senders[name] = data;
-  localStorage.setItem('ktk_senders', JSON.stringify(senders));
-  syncToCloud('senders', senders); 
-  loadSenderDropdown();
-  updatePreview();
-}
-
-function loadSenderDropdown() {
-  let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
-  let sel = document.getElementById('loadSenderSelect');
-  sel.innerHTML = '<option value="">-- Select Acc Holder --</option>';
-  for(let name in senders) {
-    let opt = document.createElement('option');
-    opt.value = name; opt.text = name;
-    sel.appendChild(opt);
-  }
-}
-
-function loadSender() {
-  const name = document.getElementById('loadSenderSelect').value;
-  if(!name) return;
-  let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
-  let data = senders[name];
-  if(!data) return;
-  senderInputs.forEach(id => { if(data[id]!==undefined) document.getElementById(id).value = data[id]; });
-  updatePreview();
-}
-
-function deleteSender() {
-  const name = document.getElementById('loadSenderSelect').value;
-  if(!name) return alert('Select an Account Holder to delete.');
-  if(!confirm(`Delete '${name}'?`)) return;
-  let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
-  delete senders[name];
-  localStorage.setItem('ktk_senders', JSON.stringify(senders));
-  syncToCloud('senders', senders); 
-  loadSenderDropdown();
-  document.getElementById('loadSenderSelect').value = '';
-  updatePreview();
-}
-
-// ==================== SAVE BENEFICIARY LOGIC ====================
-function checkBeneSaveState() {
-   let name = v('beneName').trim();
-   let acc = v('beneAcc').trim();
-   let ifsc = v('ifsc').trim();
-   let btn = document.getElementById('btnSaveBene');
-   if(!name || !acc || !ifsc) { btn.style.display = 'none'; return; }
-   btn.style.display = 'inline-block';
-   let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
-   let existing = benes[name];
-   
-   let currAccType = document.querySelector('input[name="accType"]:checked').value;
-   let isSame = existing && (existing.beneAcc === acc) && (existing.ifsc === ifsc) && ((existing.bankName || '') === v('bankName').trim()) && ((existing.beneBranch || '') === v('beneBranch').trim()) && (existing.accType === currAccType);
-                
-   if(isSame) {
-       btn.disabled = true;
-       btn.innerText = '✅ Saved';
-       btn.style.background = '#e3f2fd';
-       btn.style.color = '#1565c0';
-   } else {
-       btn.disabled = false;
-       let labelText = (currentStorageMode === 'cloud') ? '☁️ Save Cloud' : '💾 Save Local';
-       btn.innerText = existing ? '🔄 Update' : labelText;
-       btn.style.background = existing ? '#ff9800' : (currentStorageMode === 'cloud' ? '#2196f3' : '#4caf50');
-       btn.style.color = '#fff';
-   }
-}
-
-function doSaveBene() {
-  const name = v('beneName').trim();
-  if(!name) return;
-  let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
-  let data = {};
-  data['accType'] = document.querySelector('input[name="accType"]:checked').value;
-  beneInputs.forEach(id => data[id] = v(id)); 
-  benes[name] = data;
-  localStorage.setItem('ktk_benes', JSON.stringify(benes));
-  syncToCloud('benes', benes); 
-  loadBeneDropdown();
-  updatePreview();
-}
-
-function loadBeneDropdown() {
-  let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
-  let sel = document.getElementById('loadBeneSelect');
-  sel.innerHTML = '<option value="">-- Select Beneficiary --</option>';
-  for(let name in benes) {
-    let opt = document.createElement('option');
-    opt.value = name; opt.text = name;
-    sel.appendChild(opt);
-  }
-}
-
-function loadBene() {
-  const name = document.getElementById('loadBeneSelect').value;
-  if(!name) return;
-  let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
-  let data = benes[name];
-  if(!data) return;
-  if(data.accType) {
-     let r = document.querySelector(`input[name="accType"][value="${data.accType}"]`);
-     if(r) r.checked = true;
-  }
-  beneInputs.forEach(id => { if(data[id]!==undefined) document.getElementById(id).value = data[id]; });
-  updatePreview();
-}
-
-function deleteBene() {
-  const name = document.getElementById('loadBeneSelect').value;
-  if(!name) return alert('Select a Beneficiary to delete.');
-  if(!confirm(`Delete '${name}'?`)) return;
-  let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
-  delete benes[name];
-  localStorage.setItem('ktk_benes', JSON.stringify(benes));
-  syncToCloud('benes', benes); 
-  loadBeneDropdown();
-  document.getElementById('loadBeneSelect').value = '';
-  updatePreview();
-}
-
-// ==================== 🖨️ PRINTER HARDWARE & PROFILES LOGIC ====================
-let pTopO = parseInt(localStorage.getItem('ktk_ptop_v7')) || 0;
-let pLeftO = parseInt(localStorage.getItem('ktk_pleft_v7')) || 0;
-
-function adjPrint(d, val) {
-    if(d === 'top') pTopO += val; else pLeftO += val;
-    localStorage.setItem('ktk_ptop_v7', pTopO); 
-    localStorage.setItem('ktk_pleft_v7', pLeftO);
-    document.getElementById('pTopVal').innerText = pTopO + 'mm';
-    document.getElementById('pLeftVal').innerText = pLeftO + 'mm';
-}
-
-function saveCurrentPrinterProfile() {
-    let pName = prompt("Enter Printer Name (e.g., HP LaserJet, Canon LBP):");
-    if(!pName || !pName.trim()) return;
-    pName = pName.trim();
-
-    let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
-    printers[pName] = { top: pTopO, left: pLeftO };
-    localStorage.setItem('ktk_printers', JSON.stringify(printers));
-    syncToCloud('printers', printers);
-
-    loadPrinterDropdown();
-    document.getElementById('printerProfileSelect').value = pName;
-    alert(`Printer profile "${pName}" saved!`);
-}
-
-function loadPrinterDropdown() {
-    let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
-    let sel = document.getElementById('printerProfileSelect');
-    sel.innerHTML = '<option value="">-- Select Saved Printer --</option>';
-    for(let name in printers) {
-        let opt = document.createElement('option');
-        opt.value = name; opt.text = name;
-        sel.appendChild(opt);
+    // --- TOAST NOTIFICATION ---
+    function showToast(msg) {
+      const toast = document.getElementById('toastMessage');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3500);
     }
-}
 
-function loadPrinterProfile() {
-    let selVal = document.getElementById('printerProfileSelect').value;
-    if(!selVal) return;
-    let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
-    let p = printers[selVal];
-    if(p) {
-        pTopO = p.top; pLeftO = p.left;
-        localStorage.setItem('ktk_ptop_v7', pTopO);
-        localStorage.setItem('ktk_pleft_v7', pLeftO);
-        document.getElementById('pTopVal').innerText = pTopO + 'mm';
-        document.getElementById('pLeftVal').innerText = pLeftO + 'mm';
+    // --- STORAGE MODE TOGGLE (LOCAL VS CLOUD) ---
+    function setStorageMode(mode, savePref = true) {
+      storageMode = mode;
+      if (savePref) {
+        localStorage.setItem('kotak_storage_mode', mode);
+      }
+
+      const btnLocal = document.getElementById('btnModeLocal');
+      const btnCloud = document.getElementById('btnModeCloud');
+      const badge = document.getElementById('statusBadge');
+      const badgeText = document.getElementById('statusBadgeText');
+
+      if (mode === 'local') {
+        btnLocal.classList.add('active');
+        btnCloud.classList.remove('active');
+        badge.className = 'status-badge local-mode';
+        badgeText.innerText = 'Local Storage (Offline)';
+        showToast('💾 Storage switched to Local (Offline mode)');
+      } else {
+        btnCloud.classList.add('active');
+        btnLocal.classList.remove('active');
+        if (currentUser) {
+          badge.className = 'status-badge';
+          badgeText.innerText = 'Cloud Connected';
+        } else {
+          badge.className = 'status-badge disconnected';
+          badgeText.innerText = 'Cloud (Not Signed In)';
+        }
+        if (savePref) showToast('☁️ Storage switched to Cloud Sync');
+      }
     }
-}
 
-function deleteCurrentPrinterProfile() {
-    let selVal = document.getElementById('printerProfileSelect').value;
-    if(!selVal) return alert("Select a printer profile to delete.");
-    if(!confirm(`Delete profile "${selVal}"?`)) return;
+    // --- AUTH UI HANDLER ---
+    function updateAuthUI(isLoggedIn, email) {
+      const userBadge = document.getElementById('userEmailBadge');
+      const userText = document.getElementById('userEmailText');
+      const authBtn = document.getElementById('authActionBtn');
+      const badge = document.getElementById('statusBadge');
+      const badgeText = document.getElementById('statusBadgeText');
 
-    let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
-    delete printers[selVal];
-    localStorage.setItem('ktk_printers', JSON.stringify(printers));
-    syncToCloud('printers', printers);
+      if (isLoggedIn && email) {
+        userText.innerText = email;
+        userBadge.style.display = 'inline-flex';
+        authBtn.innerText = 'Logout';
+        authBtn.className = 'btn-header-action';
+        if (storageMode === 'cloud') {
+          badge.className = 'status-badge';
+          badgeText.innerText = 'Cloud Connected';
+        }
+      } else {
+        userText.innerText = 'Not Signed In';
+        userBadge.style.display = 'inline-flex';
+        authBtn.innerText = 'Google Login';
+        authBtn.className = 'btn-header-action login-btn';
+        if (storageMode === 'cloud') {
+          badge.className = 'status-badge disconnected';
+          badgeText.innerText = 'Cloud (Sign in required)';
+        }
+      }
+    }
 
-    loadPrinterDropdown();
-    pTopO = 0; pLeftO = 0;
-    document.getElementById('pTopVal').innerText = '0mm';
-    document.getElementById('pLeftVal').innerText = '0mm';
-}
+    async function handleAuthAction() {
+      if (currentUser) {
+        if (confirm('Kya aap logout karna chahte hain?')) {
+          await supabase.auth.signOut();
+          currentUser = null;
+          updateAuthUI(false, null);
+          showToast('👋 Safaltapoorvak Logout ho gaye.');
+        }
+      } else {
+        showToast('Google login khul raha hai...');
+        await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin + window.location.pathname
+          }
+        });
+      }
+    }
 
-function printAlignmentSlip() {
-    const frame = document.createElement('iframe');
-    frame.style.position = 'fixed'; frame.style.right = '0'; frame.style.bottom = '0';
-    frame.style.width = '0'; frame.style.height = '0'; frame.style.border = 'none';
-    document.body.appendChild(frame);
-    const doc = frame.contentWindow.document;
-    doc.open();
-    doc.write(`
-      <!DOCTYPE html><html><head><style>
-        @page { size: 210mm 294mm; margin: 0; }
-        body { margin: 0; padding: 0; font-family: monospace; font-size: 8pt; color: #111; }
-        .grid-box { position: relative; width: 210mm; height: 294mm; border: 1px dashed #666; }
-        .crosshair { position: absolute; font-size: 11pt; font-weight: bold; }
-      </style></head><body>
-        <div class="grid-box">
-          <div style="position:absolute; top:15mm; left:15mm; font-size:12pt; font-weight:bold;">📐 PRINTER CALIBRATION & SCAN TEST (A4)</div>
-          <div style="position:absolute; top:23mm; left:15mm; font-size:9pt;">
-             Put this sheet under your scanner or over actual bank slip.<br>
-             Current Offset Applied: Top = ${pTopO}mm | Left = ${pLeftO}mm
-          </div>
-          <div class="crosshair" style="top:37mm; left:51mm;">➕ RTGS (37mm, 51mm)</div>
-          <div class="crosshair" style="top:37mm; left:105mm;">➕ NEFT (37mm, 105mm)</div>
-          <div class="crosshair" style="top:62mm; left:24mm;">➕ Sender Acc (62mm, 24mm)</div>
-          <div class="crosshair" style="top:126mm; left:36mm;">➕ Bene Acc (126mm, 36mm)</div>
-          <div class="crosshair" style="top:142mm; left:18mm;">➕ IFSC (142mm, 18mm)</div>
-        </div>
-      </body></html>
-    `);
-    doc.close();
-    setTimeout(() => {
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-        setTimeout(() => { document.body.removeChild(frame); }, 3000);
-    }, 500);
-}
+    // --- LIVE SCANNER: WINDOWS PC SCANNER LAUNCHER ---
+    function launchWindowsScanner() {
+      // Trigger official Windows Scan URI scheme
+      window.location.href = 'ms-scanner:';
+      showToast('🖨️ Windows Scanner khul raha hai! Scan karke copy karein aur yahan Ctrl + V dabayein.');
+    }
 
-function handleScanUpload(input) {
-   if (input.files && input.files[0]) {
-       const reader = new FileReader();
-       reader.onload = function(e) {
-           document.getElementById('pvBackground').style.backgroundImage = `url('${e.target.result}')`;
-           alert("Scanned slip loaded as background! You can now adjust Zoom & Opacity to align.");
-       };
-       reader.readAsDataURL(input.files[0]);
-   }
-}
+    // --- LIVE SCANNER: CLIPBOARD AUTO-PASTE (CTRL + V) ---
+    function setupClipboardPasteListener() {
+      window.addEventListener('paste', async (e) => {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+            const blob = items[i].getAsFile();
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              applySlipBackground(event.target.result);
+              showToast('✅ Scanned Slip safaltapoorvak paste ho gayi!');
+            };
+            reader.readAsDataURL(blob);
+            e.preventDefault();
+            return;
+          }
+        }
+      });
+    }
 
-// ==================== VISUAL / PRINTING LOGIC ====================
-function manualZoom(val) {
-  document.getElementById('zoomVal').innerText = Math.round(val * 100) + '%';
-  document.getElementById('scaleWrap').style.transform = `scale(${val})`;
-}
+    async function pasteFromClipboard() {
+      try {
+        if (navigator.clipboard && navigator.clipboard.read) {
+          const items = await navigator.clipboard.read();
+          for (const item of items) {
+            for (const type of item.types) {
+              if (type.startsWith('image/')) {
+                const blob = await item.getType(type);
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  applySlipBackground(e.target.result);
+                  showToast('✅ Scanned Slip clipboard se set ho gayi!');
+                };
+                reader.readAsDataURL(blob);
+                return;
+              }
+            }
+          }
+        }
+        showToast('ℹ️ Scanner se copy karein aur keyboard se Ctrl + V dabayein.');
+      } catch (err) {
+        showToast('ℹ️ Scanner se image copy karke yahan Ctrl + V dabayein.');
+      }
+    }
 
-function autoFitPreview() {
-  const w = document.querySelector('.preview-wrap');
-  const f = document.getElementById('previewFrame');
-  if(!w || !f) return;
-  let scaleW = (w.clientWidth - 40) / f.offsetWidth; 
-  let scaleH = (w.clientHeight - 40) / f.offsetHeight; 
-  let s = Math.min(scaleW, scaleH);
-  if(s < 0.1) s = 0.1;
-  if(s > 2) s = 2;
-  document.getElementById('zoomCtrl').value = s;
-  manualZoom(s);
-}
-window.addEventListener('resize', autoFitPreview);
+    // --- LIVE SCANNER: WEBCAM / USB DOCUMENT SCANNER ---
+    async function openCameraScanner() {
+      const modal = document.getElementById('cameraModal');
+      const video = document.getElementById('cameraVideo');
+      modal.classList.remove('hidden');
 
-function createRulers() {
-   let rH = document.getElementById('rulerH'), rV = document.getElementById('rulerV');
-   let htmlH = '', htmlV = '';
-   for(let i=0; i<=210; i++) {
-       let isCm = (i%10 === 0), isHalf = (i%5 === 0 && !isCm), h = isCm ? 12 : (isHalf ? 7 : 4);
-       let txt = isCm ? `<span style="font-size:9px;position:absolute;left:2px;top:-14px;color:#d81b60;font-weight:bold;">${i}</span>` : '';
-       htmlH += `<div style="position:absolute; left:${i}mm; bottom:0; height:${h}px; border-left:1px solid ${isCm?'#d81b60':'#888'};">${txt}</div>`;
-   }
-   rH.innerHTML = htmlH;
-   for(let i=0; i<=294; i++) {
-       let isCm = (i%10 === 0), isHalf = (i%5 === 0 && !isCm), w = isCm ? 12 : (isHalf ? 7 : 4);
-       let txt = isCm ? `<span style="font-size:9px;position:absolute;top:0;left:-20px;color:#d81b60;font-weight:bold;">${i}</span>` : '';
-       htmlV += `<div style="position:absolute; top:${i}mm; right:0; width:${w}px; border-top:1px solid ${isCm?'#d81b60':'#888'};">${txt}</div>`;
-   }
-   rV.innerHTML = htmlV;
-}
-createRulers();
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+        video.srcObject = cameraStream;
+      } catch (err) {
+        alert('Camera access nahi mila: ' + err.message);
+        closeCameraScanner();
+      }
+    }
 
-let topO = parseInt(localStorage.getItem('ktk_top_v7')) || 0; 
-let leftO = parseInt(localStorage.getItem('ktk_left_v7')) || 0;
-function adj(d,val) {
-  if(d==='top') topO += val; else leftO += val;
-  localStorage.setItem('ktk_top_v7',topO); localStorage.setItem('ktk_left_v7',leftO);
-  updOff();
-}
-function updOff() {
-  document.getElementById('topVal').innerText = topO + 'mm';
-  document.getElementById('leftVal').innerText = leftO + 'mm';
-  const pvContainer = document.getElementById('previewTextContainer');
-  if(pvContainer) { pvContainer.style.top = topO + 'mm'; pvContainer.style.left = leftO + 'mm'; }
-}
-updOff();
+    function closeCameraScanner() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      document.getElementById('cameraModal').classList.add('hidden');
+    }
 
-function updatePreview(){ 
-  fillAll('pv'); 
-  checkSenderSaveState(); 
-  checkBeneSaveState(); 
-}
+    function captureCameraSnapshot() {
+      const video = document.getElementById('cameraVideo');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      applySlipBackground(dataUrl);
+      closeCameraScanner();
+      showToast('📸 Camera scan slip par set ho gayi!');
+    }
 
-function doPrint() { 
-  fillAll('pa'); 
-  const printHTML = document.querySelector('.print-area').innerHTML;
-  const frame = document.createElement('iframe');
-  frame.style.position = 'fixed'; frame.style.right = '0'; frame.style.bottom = '0';
-  frame.style.width = '0'; frame.style.height = '0'; frame.style.border = 'none';
-  document.body.appendChild(frame);
-  const doc = frame.contentWindow.document;
-  doc.open();
-  
-  let finalPrintTop = topO + pTopO;
-  let finalPrintLeft = leftO + pLeftO;
-  let wantBg = document.querySelector('input[name="printMode"]:checked').value === 'blank';
-  let bgLayerHTML = '';
-  
-  if(wantBg) {
-     let currentBg = document.getElementById('pvBackground').style.backgroundImage;
-     if(currentBg && currentBg !== 'none') {
-         let rawUrl = currentBg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
-         let currentOpacity = document.getElementById('pvBackground').style.opacity || '1';
-         bgLayerHTML = `<div style="position: absolute; top: 0; left: 0; width: 210mm; height: 294mm; background-image: url('${rawUrl}'); background-size: 210mm 294mm; background-repeat: no-repeat; opacity: ${currentOpacity}; z-index: 1; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important;"></div>`;
-     }
-  }
+    // --- DRAG & DROP ON SLIP ---
+    function setupDragAndDrop() {
+      const container = document.getElementById('slipContainer');
+      container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        container.classList.add('drag-over');
+      });
+      container.addEventListener('dragleave', () => container.classList.remove('drag-over'));
+      container.addEventListener('drop', (e) => {
+        e.preventDefault();
+        container.classList.remove('drag-over');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          const file = e.dataTransfer.files[0];
+          if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+              applySlipBackground(evt.target.result);
+              showToast('✅ Scanned image drop karke set ho gayi!');
+            };
+            reader.readAsDataURL(file);
+          }
+        }
+      });
+    }
 
-  doc.write(`
-    <!DOCTYPE html><html><head><style>
-        @page { size: 210mm 294mm; margin: 0; }
-        html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
-        .page-container { width: 210mm; height: 294mm; position: relative; overflow: hidden; }
-        .text-layer { position: absolute; top: ${finalPrintTop}mm; left: ${finalPrintLeft}mm; width: 100%; height: 100%; z-index: 2; }
-        .pa { position: absolute; white-space: nowrap; color: #000 !important; -webkit-print-color-adjust: exact !important; font-family: Arial, sans-serif; font-weight: bold; }
-        .pa-mark { position: absolute; font-size: 14pt; font-weight: 900; color: #000 !important; -webkit-print-color-adjust: exact !important; font-family: Arial, sans-serif; }
-      </style></head><body>
-      <div class="page-container">${bgLayerHTML}<div class="text-layer">${printHTML}</div></div>
-    </body></html>
-  `);
-  doc.close();
-  
-  setTimeout(() => {
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
-    setTimeout(() => { document.body.removeChild(frame); }, 3000);
-  }, 500); 
-}
+    // --- SLIP BACKGROUND MANAGEMENT ---
+    function applySlipBackground(dataUrl) {
+      applySlipBackgroundToDOM(dataUrl);
+      localStorage.setItem('kotak_slip_background', dataUrl);
+      if (storageMode === 'cloud' && currentUser) {
+        syncToCloud();
+      }
+    }
 
-function setTodayDate() {
-   let today = new Date();
-   let y = today.getFullYear();
-   let m = String(today.getMonth() + 1).padStart(2, '0');
-   let d = String(today.getDate()).padStart(2, '0');
-   document.getElementById('date').value = `${y}-${m}-${d}`;
-}
+    function applySlipBackgroundToDOM(dataUrl) {
+      const container = document.getElementById('slipContainer');
+      container.style.backgroundImage = `url(${dataUrl})`;
+      document.getElementById('slipStatusBadge').innerText = '✅ Slip Background Active';
+      document.getElementById('slipStatusBadge').style.color = '#16a34a';
+    }
 
-function clearForm(){ 
-  document.getElementById('rtgsForm').reset(); 
-  document.getElementById('loadSenderSelect').value = '';
-  document.getElementById('loadBeneSelect').value = '';
-  setTodayDate(); convertAmount(); updatePreview(); 
-}
+    function clearSlipBackground() {
+      if (confirm('Kya aap scanned background image hatana chahte hain?')) {
+        document.getElementById('slipContainer').style.backgroundImage = 'none';
+        localStorage.removeItem('kotak_slip_background');
+        document.getElementById('slipStatusBadge').innerText = '⚪ No Slip Loaded';
+        document.getElementById('slipStatusBadge').style.color = '#64748b';
+        showToast('Background slip hata di gayi.');
+      }
+    }
 
-setTodayDate();
-loadSenderDropdown();
-loadBeneDropdown();
-loadPrinterDropdown();
-renderUserNav();
+    function toggleBackgroundOnPrint(checked) {
+      if (checked) {
+        document.body.classList.remove('hide-bg-on-print');
+      } else {
+        document.body.classList.add('hide-bg-on-print');
+      }
+    }
 
-if(DEFAULT_BG_IMAGE_URL) {
-  document.getElementById('pvBackground').style.backgroundImage = `url('${DEFAULT_BG_IMAGE_URL}')`;
-}
+    // --- FIELD UPDATES & NUMBERS TO WORDS ---
+    function updateField(fieldId, value) {
+      const el = document.getElementById(`pos-${fieldId}`);
+      if (el) el.innerText = value || '';
+    }
 
-setTimeout(()=>{
-    autoFitPreview();
-    updatePreview();
-},100);
-</script>
+    function updateTransferType(type) {
+      if (type === 'RTGS') {
+        document.getElementById('pos-type-rtgs').style.display = 'block';
+        document.getElementById('pos-type-neft').style.display = 'none';
+      } else {
+        document.getElementById('pos-type-rtgs').style.display = 'none';
+        document.getElementById('pos-type-neft').style.display = 'block';
+      }
+    }
+
+    function onAmountChange(val) {
+      const num = parseFloat(val);
+      if (!isNaN(num) && num > 0) {
+        document.getElementById('pos-amount-num').innerText = '₹ ' + num.toLocaleString('en-IN') + '/-';
+        const words = convertAmountToIndianWords(num);
+        document.getElementById('inputAmountWords').value = words;
+        document.getElementById('pos-amount-words').innerText = words;
+      } else {
+        document.getElementById('pos-amount-num').innerText = '';
+        document.getElementById('inputAmountWords').value = '';
+        document.getElementById('pos-amount-words').innerText = '';
+      }
+    }
+
+    function convertAmountToIndianWords(num) {
+      const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+                    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+      const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+      function convertGroup(n) {
+        let str = '';
+        if (n >= 100) {
+          str += ones[Math.floor(n / 100)] + ' Hundred ';
+          n %= 100;
+        }
+        if (n >= 20) {
+          str += tens[Math.floor(n / 10)] + ' ';
+          n %= 10;
+        }
+        if (n > 0) {
+          str += ones[n] + ' ';
+        }
+        return str;
+      }
+
+      num = Math.floor(num);
+      if (num === 0) return 'Zero Rupees Only';
+
+      let crore = Math.floor(num / 10000000);
+      num %= 10000000;
+      let lakh = Math.floor(num / 100000);
+      num %= 100000;
+      let thousand = Math.floor(num / 1000);
+      num %= 1000;
+      let hundredAndBelow = num;
+
+      let result = '';
+      if (crore > 0) result += convertGroup(crore) + 'Crore ';
+      if (lakh > 0) result += convertGroup(lakh) + 'Lakh ';
+      if (thousand > 0) result += convertGroup(thousand) + 'Thousand ';
+      if (hundredAndBelow > 0) result += convertGroup(hundredAndBelow);
+
+      return result.trim() + ' Rupees Only';
+    }
+
+    // --- HARDWARE CALIBRATION & OFFSET CONTROLS ---
+    function applyCalibration() {
+      const topMm = parseFloat(document.getElementById('offsetTopMm').value) || 0;
+      const leftMm = parseFloat(document.getElementById('offsetLeftMm').value) || 0;
+      const scale = parseFloat(document.getElementById('scalePercent').value) || 100;
+
+      // 1mm ~ 3.78px at 96dpi
+      const topPx = topMm * 3.78;
+      const leftPx = leftMm * 3.78;
+
+      const container = document.getElementById('slipContainer');
+      container.style.transform = `translate(${leftPx}px, ${topPx}px) scale(${scale / 100})`;
+
+      localStorage.setItem('kotak_calibration', JSON.stringify({ topMm, leftMm, scale }));
+    }
+
+    function loadStoredCalibration() {
+      const saved = localStorage.getItem('kotak_calibration');
+      if (saved) {
+        try {
+          const cal = JSON.parse(saved);
+          document.getElementById('offsetTopMm').value = cal.topMm || 0;
+          document.getElementById('offsetLeftMm').value = cal.leftMm || 0;
+          document.getElementById('scalePercent').value = cal.scale || 100;
+          applyCalibration();
+        } catch(e) {}
+      }
+    }
+
+    function printCalibrationSlip() {
+      window.print();
+    }
+
+    function triggerPrint() {
+      window.print();
+    }
+
+    // --- BENEFICIARIES MANAGEMENT ---
+    function saveCurrentBeneficiary() {
+      const ben = {
+        name: document.getElementById('inputBenName').value.trim(),
+        bank: document.getElementById('inputBenBank').value.trim(),
+        branch: document.getElementById('inputBenBranch').value.trim(),
+        acc: document.getElementById('inputBenAcc').value.trim(),
+        ifsc: document.getElementById('inputBenIfsc').value.trim()
+      };
+
+      if (!ben.name || !ben.acc) {
+        alert('Kripya Beneficiary Name aur Account Number bharein.');
+        return;
+      }
+
+      savedBeneficiaries.push(ben);
+      localStorage.setItem('kotak_beneficiaries', JSON.stringify(savedBeneficiaries));
+      renderBeneficiariesDropdown();
+      if (storageMode === 'cloud' && currentUser) syncToCloud();
+      showToast('✅ Beneficiary safaltapoorvak save ho gaya!');
+    }
+
+    function loadBeneficiariesFromStorage() {
+      const data = localStorage.getItem('kotak_beneficiaries');
+      if (data) {
+        try { savedBeneficiaries = JSON.parse(data); } catch(e) {}
+      }
+      renderBeneficiariesDropdown();
+    }
+
+    function renderBeneficiariesDropdown() {
+      const select = document.getElementById('savedBeneficiarySelect');
+      select.innerHTML = '<option value="">-- Choose Saved Beneficiary --</option>';
+      savedBeneficiaries.forEach((b, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.innerText = `${b.name} (${b.bank} - ${b.acc})`;
+        select.appendChild(opt);
+      });
+    }
+
+    function loadSavedBeneficiary() {
+      const idx = document.getElementById('savedBeneficiarySelect').value;
+      if (idx === '') return;
+      const b = savedBeneficiaries[idx];
+      if (b) {
+        document.getElementById('inputBenName').value = b.name;
+        document.getElementById('inputBenBank').value = b.bank;
+        document.getElementById('inputBenBranch').value = b.branch;
+        document.getElementById('inputBenAcc').value = b.acc;
+        document.getElementById('inputBenIfsc').value = b.ifsc;
+
+        updateField('ben-name', b.name);
+        updateField('ben-bank', b.bank);
+        updateField('ben-branch', b.branch);
+        updateField('ben-acc', b.acc);
+        updateField('ben-ifsc', b.ifsc);
+        showToast('Beneficiary details auto-fill ho gayi!');
+      }
+    }
+
+    function deleteSavedBeneficiary() {
+      const idx = document.getElementById('savedBeneficiarySelect').value;
+      if (idx === '') return;
+      if (confirm('Is beneficiary ko delete karna chahte hain?')) {
+        savedBeneficiaries.splice(idx, 1);
+        localStorage.setItem('kotak_beneficiaries', JSON.stringify(savedBeneficiaries));
+        renderBeneficiariesDropdown();
+        if (storageMode === 'cloud' && currentUser) syncToCloud();
+        showToast('Beneficiary delete ho gaya.');
+      }
+    }
+
+    // --- PRINTER PROFILES ---
+    function saveCurrentPrinterProfile() {
+      const name = prompt('Printer Profile ka naam likhein (e.g. HP LaserJet / Canon LBP):');
+      if (!name) return;
+      const topMm = document.getElementById('offsetTopMm').value;
+      const leftMm = document.getElementById('offsetLeftMm').value;
+      const scale = document.getElementById('scalePercent').value;
+
+      printerProfiles[name] = { topMm, leftMm, scale };
+      localStorage.setItem('kotak_printer_profiles', JSON.stringify(printerProfiles));
+      renderPrinterProfiles();
+      showToast(`Printer profile "${name}" save ho gaya!`);
+    }
+
+    function loadPrinterProfilesFromStorage() {
+      const data = localStorage.getItem('kotak_printer_profiles');
+      if (data) {
+        try { printerProfiles = JSON.parse(data); } catch(e) {}
+      }
+      renderPrinterProfiles();
+    }
+
+    function renderPrinterProfiles() {
+      const select = document.getElementById('printerProfileSelect');
+      select.innerHTML = '<option value="default">Default Printer</option>';
+      for (let p in printerProfiles) {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.innerText = p;
+        select.appendChild(opt);
+      }
+    }
+
+    function selectPrinterProfile() {
+      const p = document.getElementById('printerProfileSelect').value;
+      if (p !== 'default' && printerProfiles[p]) {
+        document.getElementById('offsetTopMm').value = printerProfiles[p].topMm;
+        document.getElementById('offsetLeftMm').value = printerProfiles[p].leftMm;
+        document.getElementById('scalePercent').value = printerProfiles[p].scale;
+        applyCalibration();
+        showToast(`Profile "${p}" load ho gaya!`);
+      }
+    }
+
+    // --- SUPABASE CLOUD SYNC ---
+    async function syncToCloud() {
+      if (!supabase || !currentUser) return;
+      try {
+        const payload = {
+          beneficiaries: savedBeneficiaries,
+          printerProfiles: printerProfiles,
+          calibration: localStorage.getItem('kotak_calibration')
+        };
+        await supabase.from('kotak_store').upsert({
+          user_id: currentUser.id,
+          data: payload,
+          updated_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error('Cloud sync error:', err);
+      }
+    }
+
+    async function syncFromCloud() {
+      if (!supabase || !currentUser) return;
+      try {
+        const { data, error } = await supabase
+          .from('kotak_store')
+          .select('data')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        if (data && data.data) {
+          if (data.data.beneficiaries) {
+            savedBeneficiaries = data.data.beneficiaries;
+            renderBeneficiariesDropdown();
+          }
+          if (data.data.printerProfiles) {
+            printerProfiles = data.data.printerProfiles;
+            renderPrinterProfiles();
+          }
+        }
+      } catch (err) {
+        console.error('Cloud fetch error:', err);
+      }
+    }
+  </script>
 </body>
 </html>
