@@ -147,7 +147,7 @@
 <div id="loginModal">
   <div class="modal-box">
     <h3 style="color:#16213e; margin-bottom:5px;">Cloud Data Sync</h3>
-    <p style="font-size:11px; color:#666; margin-bottom:15px;">Sign in with Google to securely save your beneficiaries and printer calibration profiles.</p>
+    <p style="font-size:11px; color:#666; margin-bottom:15px;">Sign in with Google to securely save your beneficiary entries and printer profiles.</p>
     
     <button class="btn-google-modern" onclick="loginWithGoogle()">
       <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="width:18px;height:18px;margin-right:8px;">
@@ -439,7 +439,7 @@
   <div class="pa-mark" id="pa_chk_CREDIT_CARD" style="top:105mm;left:116mm;display:none;">✔</div>
   <div class="pa-mark" id="pa_chk_LOAN" style="top:105mm;left:137mm;display:none;">✔</div>
   <div class="pa-mark" id="pa_chk_Others" style="top:105mm;left:149mm;display:none;">✔</div>
-  <div class="pa-mark" id="pa_bname" style="top:118mm;left:36mm;"></div>
+  <div class="pa" id="pa_bname" style="top:118mm;left:36mm;"></div>
   <div class="pa" id="pa_bacc" style="top:126mm;left:36mm;"></div>
   <div class="pa" id="pa_bacc2" style="top:134mm;left:47mm;"></div>
   <div class="pa" id="pa_ifsc" style="top:142mm;left:18mm;"></div>
@@ -459,7 +459,7 @@
 const _0x1a = ["aHR0cHM6Ly9jbGJ3bWJmaG5xY3Jvc3N3dHhheS5zdXBhYmFzZS5jbw==", "c2JfcHVibGlzaGFibGVfZGJURUhiVjBqcGlEQWNCVnJSeG9hUV82UFV0c2FQWg=="];
 const SUPABASE_URL = atob(_0x1a[0]); 
 const SUPABASE_ANON_KEY = atob(_0x1a[1]); 
-const DEFAULT_BG_IMAGE_URL = 'https://raw.githubusercontent.com/rtgstool-droid/kotak_rtgs_form/main/githupDoc1%20(1)_page-0001.jpg'; 
+const DEFAULT_BG_IMAGE_URL = 'https://raw.githubusercontent.com/rtgstool-droid/kotak_rtgs_form/main/form_bg.jpg'; 
 
 let supabaseClient = null;
 let cloudActive = false;
@@ -486,6 +486,16 @@ if(SUPABASE_ANON_KEY) {
    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
    cloudActive = true;
    
+   // 🟢 CHECK SESSION IMMEDIATELY ON LOAD (Redirect Catch Fix)
+   supabaseClient.auth.getSession().then(({ data: { session } }) => {
+       if (session && session.user) {
+           currentUser = session.user;
+           renderUserNav();
+           fetchFromCloud();
+       }
+   });
+
+   // 🟢 AUTH STATE LISTENER
    supabaseClient.auth.onAuthStateChange((event, session) => {
        if(session && session.user) {
            currentUser = session.user;
@@ -511,7 +521,7 @@ async function loginWithGoogle() {
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: window.location.href.split('?')[0].split('#')[0]
+            redirectTo: 'https://rtgstool-droid.github.io/kotak_rtgs_form/'
         }
     });
     if(error) alert("Login Error: " + error.message);
@@ -856,7 +866,6 @@ function deleteCurrentPrinterProfile() {
     document.getElementById('pLeftVal').innerText = '0mm';
 }
 
-// 📄 PRINT CALIBRATION GRID (Scanner Alignment Slip)
 function printAlignmentSlip() {
     const frame = document.createElement('iframe');
     frame.style.position = 'fixed'; frame.style.right = '0'; frame.style.bottom = '0';
