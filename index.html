@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bank Slip Printer & Alignment Utility</title>
+
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root{--primary:#ed1c24;--bg:#f0f2f5;--card:#fff;--text:#333;}
+  *{box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;margin:0;padding:0;}
+  
+  body{background:var(--bg);color:var(--text);overflow:hidden;} 
+
+  .top-bar{background:linear-gradient(135deg,#16213e,#0f3460);color:#fff;padding:8px 16px;display:flex;align-items:center;z-index:100; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
+  .top-bar h1{font-size:15px; display:flex; align-items:center; gap:8px; margin:0;}
+  .top-bar h1 span{color:var(--primary);}
+  
+  #userNavArea {display:flex; align-items:center; gap:8px; margin-left: 10px;}
+
+  .split{display:flex;height:calc(100vh - 40px);}
+  
+  .left-panel{width: 380px; min-width: 380px; flex-shrink: 0; padding: 10px; overflow-y: auto; background: #fff; border-right: 2px solid #ccc;}
+  .right-panel{flex: 1; background: #1a1a2e; border-left: 3px solid var(--primary); display: flex; flex-direction: column; overflow: hidden;}
+  
+  .bg-controls{background:#11192b;padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;border-bottom:1px solid #2a3a5c;}
+  .bg-controls label{color:#ccc;font-size:9px;font-weight:bold;}
+
+  .preview-wrap{flex:1; overflow:auto; padding:20px; text-align:center;}
+  
+  .preview-frame{display:inline-block; width:210mm !important;height:294mm !important;min-width:210mm !important;min-height:294mm !important;background:#fff;position:relative;font-family:Arial,sans-serif;font-size:10pt;font-weight:bold;color:#000;box-shadow:0 10px 30px rgba(0,0,0,0.8);}
+  
+  .pv, .pv-mark{
+    position:absolute; white-space:nowrap; 
+    cursor: grab; user-select: none;
+    border: 1px solid transparent; border-radius: 2px;
+  }
+  .pv-mark{font-size:14pt;font-weight:900;color:var(--primary);}
+  
+  .pv:active, .pv-mark:active { cursor: grabbing; z-index:999 !important; }
+  .pv:hover, .pv-mark:hover { outline: 1px dashed #2196f3; background-color: rgba(33, 150, 243, 0.15); z-index:900; }
+
+  .pa { position: absolute; white-space: nowrap; color: #000 !important; font-family: Arial, sans-serif; font-weight: bold; }
+  .pa-mark { position: absolute; font-size: 14pt; font-weight: 900; color: #000 !important; font-family: Arial, sans-serif; }
+
+  .card{background:var(--card);padding:10px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.1);border:1px solid #eee;margin-bottom:10px;border-left:3px solid #16213e;}
+  .card-title{font-size:11px;font-weight:700;border-bottom:1px solid #eef;padding-bottom:4px;margin-bottom:8px;color:#16213e;text-transform:uppercase;}
+  
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .col-full{grid-column:1 / -1;}
+  
+  .form-group{display:flex;flex-direction:column;}
+  label{font-size:9px;font-weight:700;color:#555;margin-bottom:2px;text-transform:uppercase;}
+  input[type="text"] { text-transform: uppercase; }
+  
+  input,select{padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:11px;height:24px;background:#fafbfd;}
+  input:focus,select:focus{border-color:var(--primary);outline:none;background:#fff;}
+  .radio-group{display:flex;gap:8px;flex-wrap:wrap;}
+  .radio-item{display:flex;align-items:center;gap:3px;font-size:9px;cursor:pointer;font-weight:600;}
+
+  .cal-bar{background:#e8f4fd;padding:6px 10px;border-radius:6px;margin-bottom:10px;display:flex;align-items:center;gap:14px;border:1px solid #b3d9f2;}
+  .cal-btn{width:22px;height:22px;border:1px solid #bbb;background:#fff;font-weight:bold;font-size:13px;display:flex;justify-content:center;align-items:center;border-radius:4px;cursor:pointer;}
+  .cal-btn:hover{border-color:var(--primary);color:var(--primary);}
+  .offset-display{font-weight:800;color:#16213e;min-width:35px;text-align:center;font-size:11px;}
+  
+  .cal-btn-sm{width:20px;height:20px;border:1px solid #ccc;background:#fff;cursor:pointer;font-weight:bold;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0;}
+  .cal-btn-sm:hover{border-color:var(--primary);color:var(--primary);}
+
+  .actions{display:flex;gap:4px;padding:6px 0;margin-top:4px;}
+  .btn{padding:8px 8px;border:none;border-radius:4px;cursor:pointer;font-weight:800;font-size:10px;flex:1;text-align:center;}
+  .btn-print{background:var(--primary);color:#fff;}
+  .btn-print:hover{background:#c01016;}
+  .btn-demo{background:#ff9800;color:#fff;}
+  .btn-demo:hover{background:#e68a00;}
+  .btn-clear{background:#eee;border:1px solid #ccc;color:#333;}
+  .btn-success{background:#4caf50;color:#fff;}
+  .btn-success:hover{background:#388e3c;}
+
+  .btn-delete {
+      background: transparent; color: #e53935; border: 1px solid #e53935; 
+      padding: 3px 10px; font-size: 9px; border-radius: 12px; cursor: pointer; 
+      font-weight: 700; display: inline-flex; align-items: center; gap: 4px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-delete:hover { background: #e53935; color: #fff; box-shadow: 0 2px 5px rgba(229,57,53,0.3); }
+  .btn-delete svg { width: 11px; height: 11px; fill: currentColor; transition: transform 0.2s; }
+  .btn-delete:hover svg { transform: scale(1.15) rotate(-8deg); }
+
+  .print-mode-card { background: #ede7f6; border-left-color: #673ab7; }
+  .mode-label {
+      display:flex; align-items:center; gap:8px; background:#fff; padding:8px 12px; 
+      border-radius:6px; border:1px solid #d1c4e9; cursor:pointer; font-size:10px; 
+      font-weight:700; color:#4527a0; transition: 0.2s;
+  }
+  .mode-label:hover { border-color: #673ab7; background:#f3e5f5; }
+  .print-area { display: none; }
+
+  /* 🖨️ PRINTER HARDWARE MANAGER STYLES */
+  .printer-card { border-left-color: #e91e63; background: #fdf5f8; }
+  .printer-profile-bar { display:flex; gap:6px; align-items:center; margin-bottom:8px; background:#fff; padding:6px; border-radius:4px; border:1px solid #f8bbd0; }
+
+  /* 🔐 SAFE AUTH MODAL */
+  #loginModal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;
+      backdrop-filter: blur(3px);
+  }
+  .modal-box {
+      background: #fff; padding: 25px; border-radius: 12px; width: 320px; text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-top: 4px solid var(--primary);
+  }
+  
+  .btn-google-modern {
+      display: flex; align-items: center; justify-content: center;
+      background: #fff; color: #3c4043; border: 1px solid #dadce0;
+      padding: 10px; width: 100%; border-radius: 6px; font-weight: 600;
+      font-size: 13px; cursor: pointer; transition: background 0.2s;
+      margin-top: 15px;
+  }
+  .btn-google-modern:hover {
+      background: #f8f9fa; box-shadow: 0 1px 3px rgba(60,64,67,0.1);
+  }
+
+  .disclaimer {
+      font-size: 8px; color: #888; text-align: center; margin-top: 15px; line-height: 1.3;
+  }
+
+  /* 📱 MOBILE RESPONSIVE DESIGN */
+  @media (max-width: 800px) {
+      body { overflow: auto; }
+      .top-bar { flex-direction: column; text-align: center; padding: 12px; gap: 10px; }
+      .top-bar h1 { flex-direction: column; font-size: 14px; gap: 8px; }
+      #userNavArea { margin-left: 0; justify-content: center; flex-wrap: wrap; }
+      
+      .split { flex-direction: column; height: auto; }
+      .left-panel { width: 100%; min-width: 100%; height: auto; border-right: none; border-bottom: 4px solid var(--primary); padding-bottom: 20px;}
+      .right-panel { width: 100%; height: 75vh; min-height: 500px; border-left: none; }
+      .preview-wrap { padding: 10px; overflow: hidden; display: flex; justify-content: center; align-items: flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<!-- 🔐 SAFE GOOGLE-ONLY MODAL -->
+<div id="loginModal">
+  <div class="modal-box">
+    <h3 style="color:#16213e; margin-bottom:5px;">Cloud Data Sync</h3>
+    <p style="font-size:11px; color:#666; margin-bottom:15px;">Sign in with Google to securely save your beneficiaries and printer calibration profiles.</p>
+    
+    <button class="btn-google-modern" onclick="loginWithGoogle()">
+      <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="width:18px;height:18px;margin-right:8px;">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+      </svg>
+      Sign in with Google
+    </button>
+    
+    <br>
+    <button onclick="document.getElementById('loginModal').style.display='none'" style="margin-top:15px; background:transparent; border:none; color:#777; font-size:11px; cursor:pointer; text-decoration:underline;">Close</button>
+  </div>
+</div>
+
+<div class="top-bar">
+  <h1>
+    <span>Bank Slip</span> Printer & Alignment Utility
+    <div id="userNavArea"></div>
+  </h1>
+</div>
+
+<div class="split">
+
+<!-- ═══════ LEFT: COMPACT ENTRY FORM ═══════ -->
+<div class="left-panel">
+
+  <div class="cal-bar">
+    <div style="font-size:10px;font-weight:700;color:#16213e;line-height:1.2;">SCREEN Global Offset<br><span style="font-size:8px;font-weight:normal;">(Moves text on screen)</span></div>
+    <div style="display:flex;align-items:center;gap:4px;">
+      <span style="font-size:9px;font-weight:600;">Top</span>
+      <button type="button" class="cal-btn" onclick="adj('top',-1)">−</button>
+      <span class="offset-display" id="topVal">0mm</span>
+      <button type="button" class="cal-btn" onclick="adj('top',1)">+</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px;">
+      <span style="font-size:9px;font-weight:600;">Left</span>
+      <button type="button" class="cal-btn" onclick="adj('left',-1)">−</button>
+      <span class="offset-display" id="leftVal">0mm</span>
+      <button type="button" class="cal-btn" onclick="adj('left',1)">+</button>
+    </div>
+  </div>
+
+  <form id="rtgsForm" oninput="updatePreview()">
+    
+    <div class="card">
+      <div class="grid-2">
+        <div class="form-group col-full">
+          <div class="radio-group" style="padding-top:2px;">
+            <label class="radio-item"><input type="radio" name="mode" value="RTGS" checked onchange="updatePreview()"> RTGS</label>
+            <label class="radio-item"><input type="radio" name="mode" value="NEFT" onchange="updatePreview()"> NEFT</label>
+          </div>
+        </div>
+        <div class="form-group"><label>Branch</label><input type="text" id="branch"></div>
+        <div class="form-group"><label>Date</label><input type="date" id="date"></div>
+      </div>
+    </div>
+
+    <!-- SENDER DETAILS -->
+    <div class="card">
+      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span>Debit Details (Sender)</span>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <select id="loadSenderSelect" onchange="loadSender()" style="padding:2px 4px; font-size:10px; border-radius:4px; max-width:125px; border:1px solid #c8e6c9; background:#f1f8e9;">
+             <option value="">-- Select Acc Holder --</option>
+          </select>
+          <button type="button" class="btn-delete" onclick="deleteSender()" title="Delete Selected Sender">
+             <svg viewBox="0 0 24 24"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg> Delete
+          </button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group col-full">
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:2px;">
+            <label style="margin-bottom:0;">I/We (Name)</label>
+            <button type="button" id="btnSaveSender" onclick="doSaveSender()" style="display:none; padding:2px 8px; font-size:9px; border-radius:4px; font-weight:bold; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1); border:none; color:#fff;"></button>
+          </div>
+          <input type="text" id="iWeName" placeholder="Account Holder Name">
+        </div>
+        <div class="form-group"><label>My Acc No.</label><input type="text" id="myAccNo"></div>
+        <div class="form-group"><label>Cheque#</label><input type="text" id="cheque"></div>
+        <div class="form-group"><label>Amount ₹</label><input type="number" id="amount" oninput="convertAmount();updatePreview();"></div>
+        <div class="form-group">
+          <label>Purpose</label>
+          <select id="purposeCode" onchange="updatePreview()">
+             <option value="">-- Select --</option>
+             <option value="SUPP">SUPP (Supplier)</option>
+             <option value="SALA">SALA (Salary)</option>
+             <option value="RENT">RENT (Rent)</option>
+             <option value="CASH">CASH (Cash Mgt)</option>
+             <option value="LOAN">LOAN (Loan EMI)</option>
+             <option value="INVS">INVS (Investment)</option>
+             <option value="OTHR">OTHR (Others)</option>
+          </select>
+        </div>
+        <div class="form-group col-full"><label>Rupees in words (Auto)</label><input type="text" id="amountWords" readonly style="background:#e8f0fe;color:#16213e;"></div>
+      </div>
+    </div>
+
+    <!-- BENEFICIARY DETAILS -->
+    <div class="card">
+      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span>Beneficiary Details (Receiver)</span>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <select id="loadBeneSelect" onchange="loadBene()" style="padding:2px 4px; font-size:10px; border-radius:4px; max-width:125px; border:1px solid #bbdefb; background:#e3f2fd;">
+             <option value="">-- Select Beneficiary --</option>
+          </select>
+          <button type="button" class="btn-delete" onclick="deleteBene()" title="Delete Selected Beneficiary">
+             <svg viewBox="0 0 24 24"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg> Delete
+          </button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group col-full">
+          <div class="radio-group" style="margin-bottom:6px;">
+            <label class="radio-item"><input type="radio" name="accType" value="Current" checked onchange="updatePreview()"> Current</label>
+            <label class="radio-item"><input type="radio" name="accType" value="Savings" onchange="updatePreview()"> Savings</label>
+            <label class="radio-item"><input type="radio" name="accType" value="NRE" onchange="updatePreview()"> NRE</label>
+            <label class="radio-item"><input type="radio" name="accType" value="OD" onchange="updatePreview()"> OD</label>
+            <label class="radio-item"><input type="radio" name="accType" value="CC" onchange="updatePreview()"> CC</label>
+            <label class="radio-item"><input type="radio" name="accType" value="CREDIT_CARD" onchange="updatePreview()"> CREDIT CARD</label>
+            <label class="radio-item"><input type="radio" name="accType" value="LOAN" onchange="updatePreview()"> LOAN</label>
+            <label class="radio-item"><input type="radio" name="accType" value="Others" onchange="updatePreview()"> Others</label>
+          </div>
+        </div>
+        <div class="form-group col-full">
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:2px;">
+            <label style="margin-bottom:0;">Beneficiary Name</label>
+            <button type="button" id="btnSaveBene" onclick="doSaveBene()" style="display:none; padding:2px 8px; font-size:9px; border-radius:4px; font-weight:bold; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1); border:none; color:#fff;"></button>
+          </div>
+          <input type="text" id="beneName" placeholder="Receiver Name">
+        </div>
+        
+        <div class="form-group"><label>Bene A/c No</label><input type="text" id="beneAcc" oninput="document.getElementById('beneAccConfirm').value = this.value;"></div>
+        <div class="form-group"><label>Confirm A/c (Auto)</label><input type="text" id="beneAccConfirm" disabled style="background:#eeeeee; color:#555; cursor:not-allowed; border:1px solid #ccc;"></div>
+        
+        <div class="form-group"><label>IFSC Code</label><input type="text" id="ifsc"></div>
+        <div class="form-group"><label>Bank</label><input type="text" id="bankName"></div>
+        <div class="form-group col-full"><label>Branch</label><input type="text" id="beneBranch"></div>
+        <div class="form-group col-full"><label>LEI (Optional)</label><input type="text" id="leiNumber"></div>
+      </div>
+    </div>
+
+    <!-- 🖨️ PRINTER HARDWARE & PROFILE MANAGER -->
+    <div class="card printer-card">
+      <div class="card-title" style="color: #e91e63; display:flex; justify-content:space-between; align-items:center;">
+        <span>🖨️ Hardware & Printer Profiles</span>
+        <button type="button" onclick="printAlignmentSlip()" style="background:#e91e63; color:#fff; border:none; border-radius:3px; padding:2px 6px; font-size:8px; font-weight:bold; cursor:pointer;">📄 Print Calibration Grid</button>
+      </div>
+
+      <div class="printer-profile-bar">
+        <select id="printerProfileSelect" onchange="loadPrinterProfile()" style="flex:1; font-size:10px; height:22px;">
+          <option value="">-- Saved Printers (Default) --</option>
+        </select>
+        <button type="button" onclick="saveCurrentPrinterProfile()" style="background:#4caf50; color:#fff; border:none; padding:3px 8px; font-size:9px; font-weight:bold; border-radius:3px; cursor:pointer;">💾 Save Profile</button>
+        <button type="button" onclick="deleteCurrentPrinterProfile()" style="background:#f44336; color:#fff; border:none; padding:3px 6px; font-size:9px; font-weight:bold; border-radius:3px; cursor:pointer;">🗑️</button>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex;align-items:center;gap:4px;">
+          <span style="font-size:9px;font-weight:700;">Paper Top</span>
+          <button type="button" class="cal-btn-sm" onclick="adjPrint('top',-1)">−</button>
+          <span class="offset-display" id="pTopVal">0mm</span>
+          <button type="button" class="cal-btn-sm" onclick="adjPrint('top',1)">+</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <span style="font-size:9px;font-weight:700;">Paper Left</span>
+          <button type="button" class="cal-btn-sm" onclick="adjPrint('left',-1)">−</button>
+          <span class="offset-display" id="pLeftVal">0mm</span>
+          <button type="button" class="cal-btn-sm" onclick="adjPrint('left',1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRINT MODE SELECTION -->
+    <div class="card print-mode-card">
+      <div class="card-title" style="color: #4527a0;">🖨️ Print Output Mode (Select One)</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label class="mode-label">
+          <input type="radio" name="printMode" value="preprinted" checked style="width:16px;height:16px;accent-color:#673ab7;">
+          📄 Print Data Only (I have the pre-printed Bank Form)
+        </label>
+        <label class="mode-label">
+          <input type="radio" name="printMode" value="blank" style="width:16px;height:16px;accent-color:#673ab7;">
+          📃 Print Full Form (Data + Background Image on Blank A4 Paper)
+        </label>
+      </div>
+    </div>
+
+    <!-- MAIN FORM ACTIONS -->
+    <div class="actions">
+      <button type="button" class="btn btn-print" onclick="doPrint()">🖨️ PRINT</button>
+      <button type="button" class="btn btn-demo" onclick="fillDemoData()">✨ DEMO</button>
+      <button type="button" class="btn btn-clear" onclick="clearForm()">🗑️ CLEAR</button>
+    </div>
+
+    <div class="disclaimer">
+      ⚠️ Private Print Utility Tool. Not affiliated with or endorsed by any financial institution.
+    </div>
+  </form>
+</div>
+
+<!-- ═══════ RIGHT: LIVE PREVIEW ═══════ -->
+<div class="right-panel">
+  
+  <div class="bg-controls">
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; width:100%;">
+      <div style="display:flex; align-items:center; gap:4px; background:#34495e; padding:4px 6px; border-radius:4px;">
+        <label>🔍 ZOOM:</label>
+        <input type="range" id="zoomCtrl" min="0.1" max="2" step="0.05" value="1" oninput="manualZoom(this.value)" style="width:60px;">
+        <span id="zoomVal" style="color:#fff; font-size:9px; font-weight:bold; min-width:25px;">100%</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px; background:#34495e; padding:4px 6px; border-radius:4px;">
+        <label>👁️ Opacity:</label>
+        <input type="range" min="0" max="1" step="0.1" value="0.7" oninput="document.getElementById('pvBackground').style.opacity=this.value" style="width:40px;">
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-wrap">
+    <div id="scaleWrap" style="transform-origin: top center; display: inline-block; position: relative;">
+      
+      <!-- RULERS -->
+      <div id="rulerH" style="position: absolute; top: -25px; left: 0; height: 25px; width: 210mm; background: #fff8e1; border: 1px solid #ffb74d;"></div>
+      <div id="rulerV" style="position: absolute; top: 0; left: -25px; width: 25px; height: 294mm; background: #fff8e1; border: 1px solid #ffb74d;"></div>
+
+      <div class="preview-frame" id="previewFrame">
+        <!-- BACKGROUND LAYER -->
+        <div id="pvBackground" style="position:absolute; top:0; left:0; width:100%; height:100%; background-repeat:no-repeat; opacity:0.7; pointer-events:none; z-index:0; background-size:210mm 294mm; background-position:0mm 0mm;"></div>
+        
+        <!-- TEXT LAYER -->
+        <div id="previewTextContainer" style="z-index:2; position:relative; width:100%; height:100%;">
+          <div class="pv-mark" id="pv_chk_rtgs" style="top:37mm;left:51mm;display:none;">✔</div>
+          <div class="pv-mark" id="pv_chk_neft" style="top:37mm;left:105mm;display:none;">✔</div>
+          <div class="pv" id="pv_branch" style="top:48mm;left:5mm;"></div>
+          <div class="pv" id="pv_date" style="top:47mm;left:138mm;"></div>
+          <div class="pv" id="pv_iwename" style="top:55mm;left:11mm;"></div>
+          <div class="pv" id="pv_acc" style="top:62mm;left:24mm;"></div>
+          <div class="pv" id="pv_cheque" style="top:62mm;left:107mm;"></div>
+          <div class="pv" id="pv_amt" style="top:69mm;left:31mm;"></div>
+          <div class="pv" id="pv_words1" style="top:69mm;left:92mm;font-size:8pt;"></div>
+          <div class="pv" id="pv_words2" style="top:76mm;left:8mm;font-size:8pt;"></div>
+          <div class="pv" id="pv_purpose" style="top:89mm;left:24mm;"></div>
+          <div class="pv-mark" id="pv_chk_Current" style="top:106mm;left:25mm;display:none;">✔</div>
+          <div class="pv-mark" id="pv_chk_Savings" style="top:106mm;left:40mm;display:none;">✔</div>
+          <div class="pv-mark" id="pv_chk_NRE" style="top:106mm;left:54mm;display:none;">✔</div>
+          <div class="pv-mark" id="pv_chk_OD" style="top:106mm;left:66mm;display:none;">✔</div>
+          <div class="pv-mark" id="pv_chk_CC" style="top:106mm;left:91mm;display:none;">✔</div>
+          <div class="pv-mark" id="pv_chk_CREDIT_CARD" style="top:105mm;left:116mm;display:none;">✔</div>
+          <div class="pv-mark" id="pv_chk_LOAN" style="top:105mm;left:137mm;display:none;">✔</div>
+          <div class="pv-mark" id="pv_chk_Others" style="top:105mm;left:149mm;display:none;">✔</div>
+          <div class="pv" id="pv_bname" style="top:118mm;left:36mm;"></div>
+          <div class="pv" id="pv_bacc" style="top:126mm;left:36mm;"></div>
+          <div class="pv" id="pv_bacc2" style="top:134mm;left:47mm;"></div>
+          <div class="pv" id="pv_ifsc" style="top:142mm;left:18mm;"></div>
+          <div class="pv" id="pv_bank" style="top:141mm;left:95mm;"></div>
+          <div class="pv" id="pv_bbranch" style="top:150mm;left:16mm;"></div>
+          <div class="pv" id="pv_lei" style="top:158mm;left:34mm;"></div>
+          <div class="pv" id="pv_cb" style="top:225mm;left:14mm;font-size:8pt;"></div>
+          <div class="pv" id="pv_cd" style="top:225mm;left:129mm;font-size:8pt;"></div>
+          <div class="pv" id="pv_ca" style="top:233mm;left:93mm;font-size:8pt;"></div>
+          <div class="pv" id="pv_cchq" style="top:240mm;left:33mm;font-size:8pt;"></div>
+          <div class="pv" id="pv_cacc" style="top:240mm;left:135mm;font-size:8pt;"></div>
+          <div class="pv" id="pv_cbank" style="top:248mm;left:11mm;font-size:8pt;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="print-area">
+  <div class="pa-mark" id="pa_chk_rtgs" style="top:37mm;left:51mm;display:none;">✔</div>
+  <div class="pa-mark" id="pa_chk_neft" style="top:37mm;left:105mm;display:none;">✔</div>
+  <div class="pa" id="pa_branch" style="top:48mm;left:5mm;"></div>
+  <div class="pa" id="pa_date" style="top:47mm;left:138mm;"></div>
+  <div class="pa" id="pa_iwename" style="top:55mm;left:11mm;"></div>
+  <div class="pa" id="pa_acc" style="top:62mm;left:24mm;"></div>
+  <div class="pa" id="pa_cheque" style="top:62mm;left:107mm;"></div>
+  <div class="pa" id="pa_amt" style="top:69mm;left:31mm;"></div>
+  <div class="pa" id="pa_words1" style="top:69mm;left:92mm;font-size:10.5pt;"></div>
+  <div class="pa" id="pa_words2" style="top:76mm;left:8mm;font-size:10.5pt;"></div>
+  <div class="pa" id="pa_purpose" style="top:89mm;left:24mm;"></div>
+  <div class="pa-mark" id="pa_chk_Current" style="top:106mm;left:25mm;display:none;">✔</div>
+  <div class="pa-mark" id="pa_chk_Savings" style="top:106mm;left:40mm;display:none;">✔</div>
+  <div class="pa-mark" id="pa_chk_NRE" style="top:106mm;left:54mm;display:none;">✔</div>
+  <div class="pa-mark" id="pa_chk_OD" style="top:106mm;left:66mm;display:none;">✔</div>
+  <div class="pa-mark" id="pa_chk_CC" style="top:106mm;left:91mm;display:none;">✔</div>
+  <div class="pa-mark" id="pa_chk_CREDIT_CARD" style="top:105mm;left:116mm;display:none;">✔</div>
+  <div class="pa-mark" id="pa_chk_LOAN" style="top:105mm;left:137mm;display:none;">✔</div>
+  <div class="pa-mark" id="pa_chk_Others" style="top:105mm;left:149mm;display:none;">✔</div>
+  <div class="pa-mark" id="pa_bname" style="top:118mm;left:36mm;"></div>
+  <div class="pa" id="pa_bacc" style="top:126mm;left:36mm;"></div>
+  <div class="pa" id="pa_bacc2" style="top:134mm;left:47mm;"></div>
+  <div class="pa" id="pa_ifsc" style="top:142mm;left:18mm;"></div>
+  <div class="pa" id="pa_bank" style="top:141mm;left:95mm;"></div>
+  <div class="pa" id="pa_bbranch" style="top:150mm;left:16mm;"></div>
+  <div class="pa" id="pa_lei" style="top:158mm;left:34mm;"></div>
+  <div class="pa" id="pa_cb" style="top:225mm;left:14mm;"></div>
+  <div class="pa" id="pa_cd" style="top:225mm;left:129mm;"></div>
+  <div class="pa" id="pa_ca" style="top:233mm;left:93mm;"></div>
+  <div class="pa" id="pa_cchq" style="top:240mm;left:33mm;"></div>
+  <div class="pa" id="pa_cacc" style="top:240mm;left:135mm;"></div>
+  <div class="pa" id="pa_cbank" style="top:248mm;left:11mm;"></div>
+</div>
+
+<script>
+// ==================== ENCODED CONFIGURATION ====================
+const _0x1a = ["aHR0cHM6Ly9jbGJ3bWJmaG5xY3Jvc3N3dHhheS5zdXBhYmFzZS5jbw==", "c2JfcHVibGlzaGFibGVfZGJURUhiVjBqcGlEQWNCVnJSeG9hUV82UFV0c2FQWg=="];
+const SUPABASE_URL = atob(_0x1a[0]); 
+const SUPABASE_ANON_KEY = atob(_0x1a[1]); 
+const DEFAULT_BG_IMAGE_URL = 'https://raw.githubusercontent.com/rtgstool-droid/kotak_rtgs_form/main/githupDoc1%20(1)_page-0001.jpg'; 
+
+let supabaseClient = null;
+let cloudActive = false;
+let currentUser = null;
+
+function renderUserNav() {
+    const ui = document.getElementById('userNavArea');
+    if(!ui) return;
+    
+    if(currentUser) {
+        ui.innerHTML = `
+           <span style="font-size:10px; background:#e8f5e9; padding:3px 8px; border-radius:12px; color:#2e7d32; border:1px solid #c8e6c9; margin-left:8px;">🟢 Cloud Connected</span>
+           <span style="background:#2a3a5c; padding:4px 10px; border-radius:12px; font-weight:600; font-size:11px; margin-left:8px;">👤 ${currentUser.email}</span>
+           <button onclick="logout()" style="background:#e53935; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:10px; cursor:pointer; font-weight:bold; margin-left:8px; box-shadow:0 1px 3px rgba(0,0,0,0.2);">Logout</button>
+        `;
+    } else {
+        ui.innerHTML = `
+           <button onclick="document.getElementById('loginModal').style.display='flex'" style="background:#fff; color:var(--primary); border:2px solid var(--primary); padding:3px 12px; border-radius:12px; font-size:11px; cursor:pointer; font-weight:bold; margin-left:10px; transition:0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.2);">Cloud Login</button>
+        `;
+    }
+}
+
+if(SUPABASE_ANON_KEY) {
+   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+   cloudActive = true;
+   
+   supabaseClient.auth.onAuthStateChange((event, session) => {
+       if(session && session.user) {
+           currentUser = session.user;
+           renderUserNav();
+           fetchFromCloud(); 
+       } else {
+           currentUser = null;
+           renderUserNav();
+           localStorage.removeItem('ktk_senders');
+           localStorage.removeItem('ktk_benes');
+           localStorage.removeItem('ktk_printers');
+           loadSenderDropdown();
+           loadBeneDropdown();
+           loadPrinterDropdown();
+       }
+   });
+} else {
+   renderUserNav();
+}
+
+async function loginWithGoogle() {
+    if(!cloudActive) return alert("Configuration missing.");
+    const { data, error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+            redirectTo: window.location.href.split('?')[0].split('#')[0]
+        }
+    });
+    if(error) alert("Login Error: " + error.message);
+}
+
+async function logout() {
+    await supabaseClient.auth.signOut();
+    location.reload(); 
+}
+
+// ==================== CLOUD DATABASE LOGIC ====================
+async function syncToCloud(dbKey, jsonData) {
+   if(!cloudActive || !currentUser) return;
+   const privateUserKey = `${currentUser.id}_${dbKey}`;
+   await supabaseClient.from('kotak_store').upsert({ key: privateUserKey, value: jsonData });
+}
+
+async function fetchFromCloud() {
+   if(!cloudActive || !currentUser) return;
+   const { data, error } = await supabaseClient.from('kotak_store')
+                               .select('*')
+                               .like('key', `${currentUser.id}_%`);
+                               
+   if(data) {
+       data.forEach(row => {
+           if(row.key.endsWith('_senders')) {
+               localStorage.setItem('ktk_senders', JSON.stringify(row.value));
+               loadSenderDropdown();
+           }
+           if(row.key.endsWith('_benes')) {
+               localStorage.setItem('ktk_benes', JSON.stringify(row.value));
+               loadBeneDropdown();
+           }
+           if(row.key.endsWith('_printers')) {
+               localStorage.setItem('ktk_printers', JSON.stringify(row.value));
+               loadPrinterDropdown();
+           }
+       });
+   }
+   updatePreview();
+}
+
+// ==================== FORM LOGIC ====================
+const v = (id) => {
+   let el = document.getElementById(id);
+   if(!el) return '';
+   return (el.type === 'text') ? el.value.toUpperCase() : el.value;
+};
+
+function formatDate(s){if(!s)return'';const d=new Date(s);return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();}
+function numberToWords(num){if(num===0)return'Zero';const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];function c(n){if(n===0)return'';if(n<20)return ones[n]+' ';if(n<100)return tens[~~(n/10)]+' '+ones[n%10]+' ';if(n<1000)return ones[~~(n/100)]+' Hundred '+c(n%100);return'';}let r='';if(num>=10000000){r+=c(~~(num/10000000))+'Crore ';num%=10000000;}if(num>=100000){r+=c(~~(num/100000))+'Lakh ';num%=100000;}if(num>=1000){r+=c(~~(num/1000))+'Thousand ';num%=1000;}r+=c(num);return r.replace(/\s+/g,' ').trim();}
+function convertAmount(){let a=parseInt(v('amount'));document.getElementById('amountWords').value=(isNaN(a)||a<=0)?'':numberToWords(a)+' Rupees Only';}
+
+function splitWords(text) {
+  if(!text) return ['',''];
+  if(text.length <= 28) return [text, ''];
+  let splitIndex = text.lastIndexOf(' ', 28);
+  if(splitIndex === -1) splitIndex = 28;
+  let line1 = text.substring(0, splitIndex).trim();
+  let line2 = text.substring(splitIndex + 1).trim();
+  return [line1, line2];
+}
+
+function setText(id,val){const e=document.getElementById(id);if(e)e.innerText=val||'';}
+function show(id,yes){const e=document.getElementById(id);if(e)e.style.display=yes?'block':'none';}
+
+const acTypes=['Current','Savings','NRE','OD','CC','CREDIT_CARD','LOAN','Others'];
+const senderInputs = ['iWeName', 'myAccNo'];
+const beneInputs = ['beneName', 'beneAcc', 'beneAccConfirm', 'ifsc', 'bankName', 'beneBranch', 'leiNumber'];
+
+function fillAll(prefix){
+  const mode=document.querySelector('input[name="mode"]:checked').value;
+  const accType=document.querySelector('input[name="accType"]:checked').value;
+  const fd=formatDate(v('date'));
+  const p=prefix;
+  show(p+'_chk_rtgs',mode==='RTGS');show(p+'_chk_neft',mode==='NEFT');
+  setText(p+'_branch',v('branch'));setText(p+'_date',fd);
+  setText(p+'_iwename',v('iWeName'));
+  setText(p+'_acc',v('myAccNo'));setText(p+'_cheque',v('cheque'));
+  setText(p+'_amt',v('amount'));
+  let wordsArr = splitWords(v('amountWords'));
+  setText(p+'_words1', wordsArr[0]);
+  setText(p+'_words2', wordsArr[1]);
+  setText(p+'_purpose',v('purposeCode'));
+  acTypes.forEach(t=>show(p+'_chk_'+t,accType===t));
+  setText(p+'_bname',v('beneName'));setText(p+'_bacc',v('beneAcc'));
+  setText(p+'_bacc2',v('beneAccConfirm')||v('beneAcc'));
+  setText(p+'_ifsc',v('ifsc'));setText(p+'_bank',v('bankName'));
+  setText(p+'_bbranch',v('beneBranch'));setText(p+'_lei',v('leiNumber'));
+  setText(p+'_cb',v('branch'));setText(p+'_cd',fd);
+  setText(p+'_ca',v('amount'));setText(p+'_cchq',v('cheque'));
+  setText(p+'_cacc',v('beneAcc'));setText(p+'_cbank',v('bankName'));
+}
+
+function fillDemoData() {
+  document.querySelector('input[name="mode"][value="RTGS"]').checked = true;
+  document.getElementById('branch').value = 'MUMBAI MAIN';
+  document.getElementById('iWeName').value = 'ABC TECHNOLOGIES PVT LTD';
+  document.getElementById('myAccNo').value = '098765432100';
+  document.getElementById('cheque').value = '456123';
+  document.getElementById('amount').value = '250500';
+  document.getElementById('purposeCode').value = 'SUPP';
+  document.querySelector('input[name="accType"][value="Current"]').checked = true;
+  document.getElementById('beneName').value = 'XYZ SUPPLIERS';
+  document.getElementById('beneAcc').value = '112233445566';
+  document.getElementById('beneAccConfirm').value = '112233445566';
+  document.getElementById('ifsc').value = 'HDFC0001234';
+  document.getElementById('bankName').value = 'HDFC BANK';
+  document.getElementById('beneBranch').value = 'ANDHERI EAST';
+  convertAmount();
+  updatePreview();
+}
+
+// ==================== SAVE SENDER LOGIC ====================
+function checkSenderSaveState() {
+   let name = v('iWeName').trim();
+   let acc = v('myAccNo').trim();
+   let btn = document.getElementById('btnSaveSender');
+   if(!name || !acc) {
+       btn.style.display = 'none'; return;
+   }
+   btn.style.display = 'inline-block';
+   let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
+   let existing = senders[name];
+   
+   let isSame = existing && (existing.myAccNo === acc);
+   if(isSame) {
+       btn.disabled = true;
+       btn.innerText = '✅ Saved';
+       btn.style.background = '#e8f5e9';
+       btn.style.color = '#2e7d32';
+   } else {
+       btn.disabled = false;
+       btn.innerText = existing ? '🔄 Update Save' : '☁️ Save';
+       btn.style.background = existing ? '#ff9800' : '#4caf50';
+       btn.style.color = '#fff';
+   }
+}
+
+function doSaveSender() {
+  if(!currentUser) {
+      document.getElementById('loginModal').style.display = 'flex';
+      return;
+  }
+  const name = v('iWeName').trim();
+  if(!name) return;
+  let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
+  let data = {};
+  senderInputs.forEach(id => data[id] = v(id)); 
+  senders[name] = data;
+  localStorage.setItem('ktk_senders', JSON.stringify(senders));
+  syncToCloud('senders', senders); 
+  loadSenderDropdown();
+  updatePreview();
+}
+
+function loadSenderDropdown() {
+  let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
+  let sel = document.getElementById('loadSenderSelect');
+  sel.innerHTML = '<option value="">-- Select Acc Holder --</option>';
+  for(let name in senders) {
+    let opt = document.createElement('option');
+    opt.value = name; opt.text = name;
+    sel.appendChild(opt);
+  }
+}
+
+function loadSender() {
+  const name = document.getElementById('loadSenderSelect').value;
+  if(!name) return;
+  let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
+  let data = senders[name];
+  if(!data) return;
+  senderInputs.forEach(id => { if(data[id]!==undefined) document.getElementById(id).value = data[id]; });
+  updatePreview();
+}
+
+function deleteSender() {
+  const name = document.getElementById('loadSenderSelect').value;
+  if(!name) return alert('Please select an Account Holder from the dropdown to delete.');
+  if(!confirm(`Are you sure you want to delete '${name}'?`)) return;
+  let senders = JSON.parse(localStorage.getItem('ktk_senders')) || {};
+  delete senders[name];
+  localStorage.setItem('ktk_senders', JSON.stringify(senders));
+  syncToCloud('senders', senders); 
+  loadSenderDropdown();
+  document.getElementById('loadSenderSelect').value = '';
+  updatePreview();
+}
+
+// ==================== SAVE BENEFICIARY LOGIC ====================
+function checkBeneSaveState() {
+   let name = v('beneName').trim();
+   let acc = v('beneAcc').trim();
+   let ifsc = v('ifsc').trim();
+   let btn = document.getElementById('btnSaveBene');
+   if(!name || !acc || !ifsc) {
+       btn.style.display = 'none'; return;
+   }
+   btn.style.display = 'inline-block';
+   let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
+   let existing = benes[name];
+   
+   let currAccType = document.querySelector('input[name="accType"]:checked').value;
+   let isSame = existing && (existing.beneAcc === acc) && (existing.ifsc === ifsc) && ((existing.bankName || '') === v('bankName').trim()) && ((existing.beneBranch || '') === v('beneBranch').trim()) && (existing.accType === currAccType);
+                
+   if(isSame) {
+       btn.disabled = true;
+       btn.innerText = '✅ Saved';
+       btn.style.background = '#e3f2fd';
+       btn.style.color = '#1565c0';
+   } else {
+       btn.disabled = false;
+       btn.innerText = existing ? '🔄 Update Save' : '☁️ Save';
+       btn.style.background = existing ? '#ff9800' : '#2196f3';
+       btn.style.color = '#fff';
+   }
+}
+
+function doSaveBene() {
+  if(!currentUser) {
+      document.getElementById('loginModal').style.display = 'flex';
+      return;
+  }
+  const name = v('beneName').trim();
+  if(!name) return;
+  let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
+  let data = {};
+  data['accType'] = document.querySelector('input[name="accType"]:checked').value;
+  beneInputs.forEach(id => data[id] = v(id)); 
+  benes[name] = data;
+  localStorage.setItem('ktk_benes', JSON.stringify(benes));
+  syncToCloud('benes', benes); 
+  loadBeneDropdown();
+  updatePreview();
+}
+
+function loadBeneDropdown() {
+  let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
+  let sel = document.getElementById('loadBeneSelect');
+  sel.innerHTML = '<option value="">-- Select Beneficiary --</option>';
+  for(let name in benes) {
+    let opt = document.createElement('option');
+    opt.value = name; opt.text = name;
+    sel.appendChild(opt);
+  }
+}
+
+function loadBene() {
+  const name = document.getElementById('loadBeneSelect').value;
+  if(!name) return;
+  let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
+  let data = benes[name];
+  if(!data) return;
+  if(data.accType) {
+     let r = document.querySelector(`input[name="accType"][value="${data.accType}"]`);
+     if(r) r.checked = true;
+  }
+  beneInputs.forEach(id => { if(data[id]!==undefined) document.getElementById(id).value = data[id]; });
+  updatePreview();
+}
+
+function deleteBene() {
+  const name = document.getElementById('loadBeneSelect').value;
+  if(!name) return alert('Please select a Beneficiary from the dropdown to delete.');
+  if(!confirm(`Are you sure you want to delete '${name}'?`)) return;
+  let benes = JSON.parse(localStorage.getItem('ktk_benes')) || {};
+  delete benes[name];
+  localStorage.setItem('ktk_benes', JSON.stringify(benes));
+  syncToCloud('benes', benes); 
+  loadBeneDropdown();
+  document.getElementById('loadBeneSelect').value = '';
+  updatePreview();
+}
+
+// ==================== 🖨️ PRINTER HARDWARE & PROFILES LOGIC ====================
+let pTopO = parseInt(localStorage.getItem('ktk_ptop_v7')) || 0;
+let pLeftO = parseInt(localStorage.getItem('ktk_pleft_v7')) || 0;
+
+function adjPrint(d, val) {
+    if(d === 'top') pTopO += val; else pLeftO += val;
+    localStorage.setItem('ktk_ptop_v7', pTopO); 
+    localStorage.setItem('ktk_pleft_v7', pLeftO);
+    document.getElementById('pTopVal').innerText = pTopO + 'mm';
+    document.getElementById('pLeftVal').innerText = pLeftO + 'mm';
+}
+
+function saveCurrentPrinterProfile() {
+    let pName = prompt("Enter a name for this Printer profile (e.g., HP LaserJet, Canon Office):");
+    if(!pName || !pName.trim()) return;
+    pName = pName.trim();
+
+    let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
+    printers[pName] = { top: pTopO, left: pLeftO };
+    localStorage.setItem('ktk_printers', JSON.stringify(printers));
+    syncToCloud('printers', printers);
+
+    loadPrinterDropdown();
+    document.getElementById('printerProfileSelect').value = pName;
+    alert(`Printer profile "${pName}" saved successfully!`);
+}
+
+function loadPrinterDropdown() {
+    let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
+    let sel = document.getElementById('printerProfileSelect');
+    sel.innerHTML = '<option value="">-- Saved Printers (Default) --</option>';
+    for(let name in printers) {
+        let opt = document.createElement('option');
+        opt.value = name; opt.text = name;
+        sel.appendChild(opt);
+    }
+}
+
+function loadPrinterProfile() {
+    let selVal = document.getElementById('printerProfileSelect').value;
+    if(!selVal) return;
+    let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
+    let p = printers[selVal];
+    if(p) {
+        pTopO = p.top;
+        pLeftO = p.left;
+        localStorage.setItem('ktk_ptop_v7', pTopO);
+        localStorage.setItem('ktk_pleft_v7', pLeftO);
+        document.getElementById('pTopVal').innerText = pTopO + 'mm';
+        document.getElementById('pLeftVal').innerText = pLeftO + 'mm';
+    }
+}
+
+function deleteCurrentPrinterProfile() {
+    let selVal = document.getElementById('printerProfileSelect').value;
+    if(!selVal) return alert("Select a printer profile first to delete.");
+    if(!confirm(`Delete printer profile "${selVal}"?`)) return;
+
+    let printers = JSON.parse(localStorage.getItem('ktk_printers')) || {};
+    delete printers[selVal];
+    localStorage.setItem('ktk_printers', JSON.stringify(printers));
+    syncToCloud('printers', printers);
+
+    loadPrinterDropdown();
+    pTopO = 0; pLeftO = 0;
+    document.getElementById('pTopVal').innerText = '0mm';
+    document.getElementById('pLeftVal').innerText = '0mm';
+}
+
+// 📄 PRINT CALIBRATION GRID (Scanner Alignment Slip)
+function printAlignmentSlip() {
+    const frame = document.createElement('iframe');
+    frame.style.position = 'fixed'; frame.style.right = '0'; frame.style.bottom = '0';
+    frame.style.width = '0'; frame.style.height = '0'; frame.style.border = 'none';
+    document.body.appendChild(frame);
+    const doc = frame.contentWindow.document;
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html><html><head><style>
+        @page { size: 210mm 294mm; margin: 0; }
+        body { margin: 0; padding: 0; font-family: monospace; font-size: 8pt; color: #333; }
+        .grid-box { position: relative; width: 210mm; height: 294mm; border: 1px solid #999; }
+        .mark-top { position: absolute; top: 10mm; left: 10mm; font-size: 11pt; font-weight: bold; }
+        .crosshair { position: absolute; font-size: 14pt; }
+      </style></head><body>
+        <div class="grid-box">
+          <div class="mark-top">📐 PRINTER CALIBRATION SLIP (A4)</div>
+          <div style="position:absolute; top:20mm; left:10mm; font-size:9pt;">
+             Put this print on top of your bank form under light or scanner.<br>
+             Current Hardware Settings: Top=${pTopO}mm, Left=${pLeftO}mm
+          </div>
+          <div class="crosshair" style="top:37mm; left:51mm;">➕ RTGS Mark (37mm, 51mm)</div>
+          <div class="crosshair" style="top:37mm; left:105mm;">➕ NEFT Mark (37mm, 105mm)</div>
+          <div class="crosshair" style="top:62mm; left:24mm;">➕ Sender Acc (62mm, 24mm)</div>
+          <div class="crosshair" style="top:126mm; left:36mm;">➕ Bene Acc (126mm, 36mm)</div>
+          <div class="crosshair" style="top:142mm; left:18mm;">➕ IFSC (142mm, 18mm)</div>
+        </div>
+      </body></html>
+    `);
+    doc.close();
+    setTimeout(() => {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        setTimeout(() => { document.body.removeChild(frame); }, 3000);
+    }, 500);
+}
+
+// ==================== VISUAL / PRINTING LOGIC ====================
+function manualZoom(val) {
+  document.getElementById('zoomVal').innerText = Math.round(val * 100) + '%';
+  document.getElementById('scaleWrap').style.transform = `scale(${val})`;
+}
+
+function autoFitPreview() {
+  const w = document.querySelector('.preview-wrap');
+  const f = document.getElementById('previewFrame');
+  if(!w || !f) return;
+  
+  let scaleW = (w.clientWidth - 40) / f.offsetWidth; 
+  let scaleH = (w.clientHeight - 40) / f.offsetHeight; 
+  
+  let s = Math.min(scaleW, scaleH);
+  
+  if(s < 0.1) s = 0.1;
+  if(s > 2) s = 2;
+  
+  document.getElementById('zoomCtrl').value = s;
+  manualZoom(s);
+}
+window.addEventListener('resize', autoFitPreview);
+
+function createRulers() {
+   let rH = document.getElementById('rulerH'), rV = document.getElementById('rulerV');
+   let htmlH = '', htmlV = '';
+   for(let i=0; i<=210; i++) {
+       let isCm = (i%10 === 0), isHalf = (i%5 === 0 && !isCm), h = isCm ? 12 : (isHalf ? 7 : 4);
+       let txt = isCm ? `<span style="font-size:9px;position:absolute;left:2px;top:-14px;color:#d81b60;font-weight:bold;">${i}</span>` : '';
+       htmlH += `<div style="position:absolute; left:${i}mm; bottom:0; height:${h}px; border-left:1px solid ${isCm?'#d81b60':'#888'};">${txt}</div>`;
+   }
+   rH.innerHTML = htmlH;
+   for(let i=0; i<=294; i++) {
+       let isCm = (i%10 === 0), isHalf = (i%5 === 0 && !isCm), w = isCm ? 12 : (isHalf ? 7 : 4);
+       let txt = isCm ? `<span style="font-size:9px;position:absolute;top:0;left:-20px;color:#d81b60;font-weight:bold;">${i}</span>` : '';
+       htmlV += `<div style="position:absolute; top:${i}mm; right:0; width:${w}px; border-top:1px solid ${isCm?'#d81b60':'#888'};">${txt}</div>`;
+   }
+   rV.innerHTML = htmlV;
+}
+createRulers();
+
+let topO = parseInt(localStorage.getItem('ktk_top_v7')) || 0; 
+let leftO = parseInt(localStorage.getItem('ktk_left_v7')) || 0;
+function adj(d,val) {
+  if(d==='top') topO += val; else leftO += val;
+  localStorage.setItem('ktk_top_v7',topO); localStorage.setItem('ktk_left_v7',leftO);
+  updOff();
+}
+function updOff() {
+  document.getElementById('topVal').innerText = topO + 'mm';
+  document.getElementById('leftVal').innerText = leftO + 'mm';
+  const pvContainer = document.getElementById('previewTextContainer');
+  if(pvContainer) { pvContainer.style.top = topO + 'mm'; pvContainer.style.left = leftO + 'mm'; }
+}
+updOff();
+
+function updatePreview(){ 
+  fillAll('pv'); 
+  checkSenderSaveState(); 
+  checkBeneSaveState(); 
+}
+
+function doPrint() { 
+  fillAll('pa'); 
+  const printHTML = document.querySelector('.print-area').innerHTML;
+  const frame = document.createElement('iframe');
+  frame.style.position = 'fixed'; frame.style.right = '0'; frame.style.bottom = '0';
+  frame.style.width = '0'; frame.style.height = '0'; frame.style.border = 'none';
+  document.body.appendChild(frame);
+  const doc = frame.contentWindow.document;
+  doc.open();
+  
+  let finalPrintTop = topO + pTopO;
+  let finalPrintLeft = leftO + pLeftO;
+  let wantBg = document.querySelector('input[name="printMode"]:checked').value === 'blank';
+  let bgLayerHTML = '';
+  
+  if(wantBg) {
+     let currentBg = document.getElementById('pvBackground').style.backgroundImage;
+     if(currentBg && currentBg !== 'none') {
+         let rawUrl = currentBg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
+         let currentOpacity = document.getElementById('pvBackground').style.opacity || '1';
+         bgLayerHTML = `<div style="position: absolute; top: 0; left: 0; width: 210mm; height: 294mm; background-image: url('${rawUrl}'); background-size: 210mm 294mm; background-repeat: no-repeat; opacity: ${currentOpacity}; z-index: 1; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important;"></div>`;
+     }
+  }
+
+  doc.write(`
+    <!DOCTYPE html><html><head><style>
+        @page { size: 210mm 294mm; margin: 0; }
+        html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+        .page-container { width: 210mm; height: 294mm; position: relative; overflow: hidden; }
+        .text-layer { position: absolute; top: ${finalPrintTop}mm; left: ${finalPrintLeft}mm; width: 100%; height: 100%; z-index: 2; }
+        .pa { position: absolute; white-space: nowrap; color: #000 !important; -webkit-print-color-adjust: exact !important; font-family: Arial, sans-serif; font-weight: bold; }
+        .pa-mark { position: absolute; font-size: 14pt; font-weight: 900; color: #000 !important; -webkit-print-color-adjust: exact !important; font-family: Arial, sans-serif; }
+      </style></head><body>
+      <div class="page-container">${bgLayerHTML}<div class="text-layer">${printHTML}</div></div>
+    </body></html>
+  `);
+  doc.close();
+  
+  setTimeout(() => {
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+    setTimeout(() => { document.body.removeChild(frame); }, 3000);
+  }, 500); 
+}
+
+function setTodayDate() {
+   let today = new Date();
+   let y = today.getFullYear();
+   let m = String(today.getMonth() + 1).padStart(2, '0');
+   let d = String(today.getDate()).padStart(2, '0');
+   document.getElementById('date').value = `${y}-${m}-${d}`;
+}
+
+function clearForm(){ 
+  document.getElementById('rtgsForm').reset(); 
+  document.getElementById('loadSenderSelect').value = '';
+  document.getElementById('loadBeneSelect').value = '';
+  setTodayDate(); convertAmount(); updatePreview(); 
+}
+
+setTodayDate();
+loadSenderDropdown();
+loadBeneDropdown();
+loadPrinterDropdown();
+renderUserNav();
+
+if(DEFAULT_BG_IMAGE_URL) {
+  document.getElementById('pvBackground').style.backgroundImage = `url('${DEFAULT_BG_IMAGE_URL}')`;
+}
+
+setTimeout(()=>{
+    autoFitPreview();
+    updatePreview();
+},100);
+</script>
+</body>
+</html>
