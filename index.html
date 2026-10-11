@@ -18,7 +18,33 @@
   .top-bar h1{font-size:15px; display:flex; align-items:center; gap:8px; margin:0;}
   .top-bar h1 span{color:var(--primary);}
   
-  .storage-mode-bar {display:flex; align-items:center; gap:8px;}
+  .top-right-bar {display:flex; align-items:center; gap:12px;}
+
+  /* 🔘 LOCAL vs CLOUD TOGGLE (Left: Local, Right: Cloud - Default Right) */
+  .storage-toggle-pill {
+    display: inline-flex;
+    background: #0b1727;
+    border: 1px solid #334e68;
+    border-radius: 20px;
+    padding: 2px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .storage-toggle-pill span {
+    padding: 3px 12px;
+    border-radius: 16px;
+    transition: all 0.2s ease;
+    color: #9fb3c8;
+  }
+  .storage-toggle-pill span.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  #userNavArea {display:flex; align-items:center; gap:8px;}
 
   .split{display:flex;height:calc(100vh - 40px);}
   
@@ -101,21 +127,13 @@
   .printer-card { border-left-color: #e91e63; background: #fdf5f8; }
   .printer-profile-bar { display:flex; gap:6px; align-items:center; margin-bottom:8px; background:#fff; padding:6px; border-radius:4px; border:1px solid #f8bbd0; }
 
-  /* 🔐 AUTH & STORAGE MODE BUTTONS */
-  .badge-mode { font-size:10px; font-weight:bold; padding:4px 8px; border-radius:12px; border:1px solid; display:inline-flex; align-items:center; gap:4px; }
-  .badge-local { background:#e0f2fe; color:#0369a1; border-color:#bae6fd; }
-  .badge-cloud { background:#dcfce7; color:#15803d; border-color:#bbf7d0; }
-
-  .btn-mode-toggle { background:#fff; color:#16213e; border:none; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
-  .btn-mode-toggle:hover { background:#f1f5f9; }
-
   .disclaimer { font-size: 8px; color: #888; text-align: center; margin-top: 15px; line-height: 1.3; }
 
   /* 📱 MOBILE RESPONSIVE DESIGN */
   @media (max-width: 800px) {
       body { overflow: auto; }
       .top-bar { flex-direction: column; text-align: center; padding: 12px; gap: 8px; }
-      .storage-mode-bar { justify-content: center; flex-wrap: wrap; }
+      .top-right-bar { justify-content: center; flex-wrap: wrap; }
       .split { flex-direction: column; height: auto; }
       .left-panel { width: 100%; min-width: 100%; height: auto; border-right: none; border-bottom: 4px solid var(--primary); padding-bottom: 20px;}
       .right-panel { width: 100%; height: 75vh; min-height: 500px; border-left: none; }
@@ -129,7 +147,17 @@
   <h1>
     <span>Bank Slip</span> Printer & Alignment Utility
   </h1>
-  <div class="storage-mode-bar" id="userNavArea"></div>
+
+  <div class="top-right-bar">
+    <!-- 🔘 STORAGE TOGGLE (Left: Local | Right: Cloud [Default]) -->
+    <div class="storage-toggle-pill" onclick="toggleStorageMode()">
+      <span id="toggleOptLocal">💾 Local</span>
+      <span id="toggleOptCloud" class="active">☁️ Cloud</span>
+    </div>
+
+    <!-- 👤 ORIGINAL USER NAV (Login / Logout pehle jaisi jagah) -->
+    <div id="userNavArea"></div>
+  </div>
 </div>
 
 <div class="split">
@@ -406,7 +434,7 @@
   <div class="pa-mark" id="pa_chk_CREDIT_CARD" style="top:105mm;left:116mm;display:none;">✔</div>
   <div class="pa-mark" id="pa_chk_LOAN" style="top:105mm;left:137mm;display:none;">✔</div>
   <div class="pa-mark" id="pa_chk_Others" style="top:105mm;left:149mm;display:none;">✔</div>
-  <div class="pa" id="pa_bname" style="top:118mm;left:36mm;"></div>
+  <div class="pa-mark" id="pa_bname" style="top:118mm;left:36mm;"></div>
   <div class="pa" id="pa_bacc" style="top:126mm;left:36mm;"></div>
   <div class="pa" id="pa_bacc2" style="top:134mm;left:47mm;"></div>
   <div class="pa" id="pa_ifsc" style="top:142mm;left:18mm;"></div>
@@ -424,7 +452,6 @@
 <script>
 // ==================== CONFIGURATION ====================
 const SUPABASE_URL = 'https://clbwmbfhnqcrosswtxay.supabase.co'; 
-// Exactly matching project anon key
 const SUPABASE_ANON_KEY = 'sb_publishable_' + 'dbTEHBv0jpiDAcBVrRXoaQ_6PUtsaPZ'; 
 const DEFAULT_BG_IMAGE_URL = 'https://raw.githubusercontent.com/rtgstool-droid/kotak_rtgs_form/main/form_bg.jpg'; 
 
@@ -432,19 +459,36 @@ let supabaseClient = null;
 let cloudActive = false;
 let currentUser = null;
 
+// Storage Mode: 'cloud' (Right) is default! 'local' (Left)
+let currentStorageMode = 'cloud'; 
+
+function toggleStorageMode() {
+    if(currentStorageMode === 'cloud') {
+        currentStorageMode = 'local';
+        document.getElementById('toggleOptLocal').classList.add('active');
+        document.getElementById('toggleOptCloud').classList.remove('active');
+    } else {
+        currentStorageMode = 'cloud';
+        document.getElementById('toggleOptCloud').classList.add('active');
+        document.getElementById('toggleOptLocal').classList.remove('active');
+    }
+    checkSenderSaveState();
+    checkBeneSaveState();
+}
+
 function renderUserNav() {
     const ui = document.getElementById('userNavArea');
     if(!ui) return;
     
     if(currentUser) {
         ui.innerHTML = `
-           <span class="badge-mode badge-cloud">🟢 Cloud Synced (${currentUser.email})</span>
-           <button class="btn-mode-toggle" onclick="logout()" style="color:#e53935;">Logout</button>
+           <span style="font-size:10px; background:#e8f5e9; padding:3px 8px; border-radius:12px; color:#2e7d32; border:1px solid #c8e6c9;">🟢 Cloud Connected</span>
+           <span style="background:#2a3a5c; color:#fff; padding:4px 10px; border-radius:12px; font-weight:600; font-size:11px;">👤 ${currentUser.email}</span>
+           <button onclick="logout()" style="background:#e53935; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:10px; cursor:pointer; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.2);">Logout</button>
         `;
     } else {
         ui.innerHTML = `
-           <span class="badge-mode badge-local">💾 Mode: Local (This Device)</span>
-           <button class="btn-mode-toggle" onclick="loginWithGoogle()">☁️ Sync with Google</button>
+           <button onclick="loginWithGoogle()" style="background:#fff; color:var(--primary); border:2px solid var(--primary); padding:3px 12px; border-radius:12px; font-size:11px; cursor:pointer; font-weight:bold; transition:0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.2);">Login / Sign up</button>
         `;
     }
 }
@@ -477,7 +521,6 @@ try {
        }
    }
 
-   // Standard session check
    supabaseClient.auth.getSession().then(({ data: { session } }) => {
        if (session && session.user) {
            currentUser = session.user;
@@ -499,7 +542,7 @@ try {
        }
    });
 } catch(err) {
-   console.warn("Supabase init fallback to local mode:", err);
+   console.warn("Supabase init fallback:", err);
    renderUserNav();
 }
 
@@ -518,13 +561,11 @@ async function logout() {
     if(supabaseClient) await supabaseClient.auth.signOut();
     currentUser = null;
     renderUserNav();
-    alert("Switched back to Local Device Storage mode.");
 }
 
 // ==================== STORAGE & DATABASE LOGIC ====================
-// Automatically syncs to Cloud if logged in, otherwise keeps safely in LocalStorage!
 async function syncToCloud(dbKey, jsonData) {
-   if(cloudActive && currentUser) {
+   if(currentStorageMode === 'cloud' && cloudActive && currentUser) {
        const privateUserKey = `${currentUser.id}_${dbKey}`;
        await supabaseClient.from('kotak_store').upsert({ key: privateUserKey, value: jsonData });
    }
@@ -620,7 +661,7 @@ function fillDemoData() {
   updatePreview();
 }
 
-// ==================== SAVE SENDER LOGIC (WORKS OFFLINE & ONLINE) ====================
+// ==================== SAVE SENDER LOGIC ====================
 function checkSenderSaveState() {
    let name = v('iWeName').trim();
    let acc = v('myAccNo').trim();
@@ -638,8 +679,9 @@ function checkSenderSaveState() {
        btn.style.color = '#2e7d32';
    } else {
        btn.disabled = false;
-       btn.innerText = existing ? '🔄 Update' : (currentUser ? '☁️ Save Cloud' : '💾 Save Local');
-       btn.style.background = existing ? '#ff9800' : '#4caf50';
+       let labelText = (currentStorageMode === 'cloud') ? '☁️ Save Cloud' : '💾 Save Local';
+       btn.innerText = existing ? '🔄 Update' : labelText;
+       btn.style.background = existing ? '#ff9800' : (currentStorageMode === 'cloud' ? '#2196f3' : '#4caf50');
        btn.style.color = '#fff';
    }
 }
@@ -691,7 +733,7 @@ function deleteSender() {
   updatePreview();
 }
 
-// ==================== SAVE BENEFICIARY LOGIC (WORKS OFFLINE & ONLINE) ====================
+// ==================== SAVE BENEFICIARY LOGIC ====================
 function checkBeneSaveState() {
    let name = v('beneName').trim();
    let acc = v('beneAcc').trim();
@@ -712,8 +754,9 @@ function checkBeneSaveState() {
        btn.style.color = '#1565c0';
    } else {
        btn.disabled = false;
-       btn.innerText = existing ? '🔄 Update' : (currentUser ? '☁️ Save Cloud' : '💾 Save Local');
-       btn.style.background = existing ? '#ff9800' : '#2196f3';
+       let labelText = (currentStorageMode === 'cloud') ? '☁️ Save Cloud' : '💾 Save Local';
+       btn.innerText = existing ? '🔄 Update' : labelText;
+       btn.style.background = existing ? '#ff9800' : (currentStorageMode === 'cloud' ? '#2196f3' : '#4caf50');
        btn.style.color = '#fff';
    }
 }
@@ -838,7 +881,6 @@ function deleteCurrentPrinterProfile() {
     document.getElementById('pLeftVal').innerText = '0mm';
 }
 
-// 📄 CALIBRATION TEST PRINT SLIP
 function printAlignmentSlip() {
     const frame = document.createElement('iframe');
     frame.style.position = 'fixed'; frame.style.right = '0'; frame.style.bottom = '0';
@@ -875,7 +917,6 @@ function printAlignmentSlip() {
     }, 500);
 }
 
-// 📷 HANDLE USER SCANNED IMAGE UPLOAD
 function handleScanUpload(input) {
    if (input.files && input.files[0]) {
        const reader = new FileReader();
